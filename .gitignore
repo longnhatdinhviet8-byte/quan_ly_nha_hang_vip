@@ -23,9 +23,6 @@ database/*.sqlite-journal
 database/*.sqlite-wal
 database/*.sqlite-shm
 
-# Frontend build output (được build tự động trong CI / Docker)
-frontend/dist/
-
 # OS metadata
 .DS_Store
 Thumbs.db

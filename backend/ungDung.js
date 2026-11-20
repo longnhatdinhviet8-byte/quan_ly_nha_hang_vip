@@ -68,8 +68,21 @@ ungDung.use('/api/he-thong', heThongRoutes);
 const thuMucFrontendBuild = path.join(__dirname, '../frontend/dist');
 if (fs.existsSync(thuMucFrontendBuild)) {
     ungDung.use(express.static(thuMucFrontendBuild));
-    ungDung.get(/^(?!\/api|\/public).*$/, (req, res) => {
-        res.sendFile(path.join(thuMucFrontendBuild, 'index.html'));
+    ungDung.use((req, res, next) => {
+        if (req.method === 'GET' && !req.path.startsWith('/api') && !req.path.startsWith('/public')) {
+            return res.sendFile(path.join(thuMucFrontendBuild, 'index.html'));
+        }
+        next();
+    });
+} else {
+    ungDung.get('/', (req, res) => {
+        res.send(`
+            <div style="font-family:sans-serif;text-align:center;padding:50px;">
+                <h2 style="color:#b64d2d;">Quán Mộc POS & E-Menu</h2>
+                <p>Thư mục giao diện <b>frontend/dist</b> chưa được tạo trên máy chủ.</p>
+                <p>Vui lòng mở terminal và chạy lệnh: <code>cd frontend && npm install && npm run build</code></p>
+            </div>
+        `);
     });
 }
 
