@@ -1,61 +1,215 @@
 // ============================================================================
 // DỰ ÁN: HỆ THỐNG QUẢN LÝ NHÀ HÀNG & GỌI MÓN QR TẠI BÀN (QUÁN MỘC POS & E-MENU)
-// A10 · QUẢN LÝ PHÒNG BÀN (1440x1000) - CHUẨN THIẾT KẾ FIGMA
+// A10 · QUẢN LÝ PHÒNG BÀN & CHỈNH SỬA BÀN ĂN (1440x1000) - CHUẨN THIẾT KẾ FIGMA
 // ============================================================================
 
-import React, { useState } from 'react';
-import { Plus, Edit2, Trash2, QrCode, Check } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, QrCode, Check, X, Users, MapPin, CheckCircle2, AlertCircle } from 'lucide-react';
 import { DANH_SACH_BAN as DANH_SACH_BAN_MAU } from '../../dungChung/duLieuMau';
+import { api } from '../../dungChung/api';
 
 export default function TrangQuanLyPhongBan({ onChuyenSangTaoQr }) {
   const [danhSach, setDanhSach] = useState(DANH_SACH_BAN_MAU);
+  const [danhSachKhuVuc, setDanhSachKhuVuc] = useState([
+    { id: 1, ten_khu_vuc: 'Tầng 1 (Khu Máy Lạnh)', ma_khu_vuc: 'T1' },
+    { id: 2, ten_khu_vuc: 'Tầng 2 (Ngoài Trời)', ma_khu_vuc: 'T2' },
+    { id: 3, ten_khu_vuc: 'Sân Vườn Sinh Thái', ma_khu_vuc: 'SV' },
+    { id: 4, ten_khu_vuc: 'Phòng VIP Hoàng Gia', ma_khu_vuc: 'VIP' }
+  ]);
   const [khuVucChon, setKhuVucChon] = useState('Tất cả');
+  const [dangTai, setDangTai] = useState(false);
+  const [thongBao, setThongBao] = useState(null);
 
-  const banLoc = danhSach.filter(b => khuVucChon === 'Tất cả' || b.khu_vuc === khuVucChon);
+  // State Modal Chỉnh sửa / Thêm mới
+  const [banDangSua, setBanDangSua] = useState(null);
+  const [hienModalThem, setHienModalThem] = useState(false);
 
-  const themBanMoi = () => {
-    const ma = prompt('Nhập mã bàn mới (Ví dụ: B13):', `B${danhSach.length + 1}`);
-    if (!ma) return;
-    const ten = prompt('Nhập tên hiển thị (Ví dụ: Bàn 13):', `Bàn ${danhSach.length + 1}`);
-    const khuVuc = prompt('Nhập khu vực (Tầng 1, Tầng 2, Sân vườn):', 'Tầng 1');
-    const soCho = Number(prompt('Nhập số chỗ ngồi:', '4')) || 4;
+  // Form State
+  const [formData, setFormData] = useState({
+    id: null,
+    ma_ban: '',
+    ten_ban: '',
+    khu_vuc_id: 1,
+    suc_chua: 4,
+    tu_dong_duyet_mon: 0
+  });
 
-    const banMoi = {
-      ma_ban: ma,
-      ten_ban: ten || ma,
-      khu_vuc: khuVuc,
-      so_cho: soCho,
-      trang_thai: 'trong',
-      so_khach: 0,
-      tam_tinh: 0
-    };
-    setDanhSach(prev => [...prev, banMoi]);
+  // Tải danh sách bàn và khu vực từ Backend
+  const taiDuLieu = async () => {
+    try {
+      setDangTai(true);
+      const res = await api.get('/api/ban-an');
+      if (res) {
+        if (Array.isArray(res.banAn)) {
+          // Chuẩn hóa dữ liệu bàn
+          const banChuan = res.banAn.map(b => ({
+            id: b.id,
+            ma_ban: b.ma_ban,
+            ten_ban: b.ten_ban,
+            khu_vuc: b.ten_khu_vuc || 'Tầng 1',
+            khu_vuc_id: b.khu_vuc_id,
+            so_cho: b.suc_chua || 4,
+            trang_thai: b.trang_thai || 'trong',
+            tu_dong_duyet_mon: b.tu_dong_duyet_mon || 0
+          }));
+          setDanhSach(banChuan);
+        }
+        if (Array.isArray(res.khuVuc) && res.khuVuc.length > 0) {
+          setDanhSachKhuVuc(res.khuVuc);
+        }
+      }
+    } catch (err) {
+      console.warn('Lấy danh sách bàn từ API thất bại, dùng fallback:', err.message);
+    } finally {
+      setDangTai(false);
+    }
+  };
+
+  useEffect(() => {
+    taiDuLieu();
+  }, []);
+
+  // Lọc bàn theo khu vực
+  const banLoc = danhSach.filter(b => {
+    if (khuVucChon === 'Tất cả') return true;
+    return b.khu_vuc.includes(khuVucChon);
+  });
+
+  // Mở modal sửa bàn
+  const handleMoSuaBan = (ban) => {
+    setBanDangSua(ban);
+    setFormData({
+      id: ban.id,
+      ma_ban: ban.ma_ban,
+      ten_ban: ban.ten_ban,
+      khu_vuc_id: ban.khu_vuc_id || 1,
+      suc_chua: ban.so_cho || 4,
+      tu_dong_duyet_mon: ban.tu_dong_duyet_mon || 0
+    });
+  };
+
+  // Mở modal thêm bàn
+  const handleMoThemBan = () => {
+    setFormData({
+      id: null,
+      ma_ban: `B${String(danhSach.length + 1).padStart(2, '0')}`,
+      ten_ban: `Bàn ${String(danhSach.length + 1).padStart(2, '0')}`,
+      khu_vuc_id: danhSachKhuVuc[0]?.id || 1,
+      suc_chua: 4,
+      tu_dong_duyet_mon: 0
+    });
+    setHienModalThem(true);
+  };
+
+  // Lưu chỉnh sửa bàn
+  const handleLuuSuaBan = async (e) => {
+    e.preventDefault();
+    try {
+      if (formData.id) {
+        // Cập nhật bàn ăn hiện có
+        await api.put(`/api/ban-an/${formData.id}`, {
+          tenBan: formData.ten_ban,
+          maBan: formData.ma_ban,
+          khuVucId: formData.khu_vuc_id,
+          sucChua: formData.suc_chua,
+          tuDongDuyetMon: formData.tu_dong_duyet_mon === 1
+        });
+
+        const tenKhuVuc = danhSachKhuVuc.find(k => k.id === Number(formData.khu_vuc_id))?.ten_khu_vuc || 'Tầng 1';
+
+        setDanhSach(prev => prev.map(b => b.id === formData.id ? {
+          ...b,
+          ten_ban: formData.ten_ban,
+          ma_ban: formData.ma_ban,
+          so_cho: formData.suc_chua,
+          khu_vuc: tenKhuVuc,
+          khu_vuc_id: formData.khu_vuc_id,
+          tu_dong_duyet_mon: formData.tu_dong_duyet_mon
+        } : b));
+
+        setThongBao({ loai: 'thanhCong', noiDung: `Cập nhật thông tin ${formData.ten_ban} thành công!` });
+      }
+      setBanDangSua(null);
+    } catch (err) {
+      alert('Lỗi khi cập nhật bàn: ' + (err.message || 'Không thể kết nối máy chủ'));
+    }
+  };
+
+  // Lưu tạo bàn mới
+  const handleLuuThemBan = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await api.post('/api/ban-an', {
+        tenBan: formData.ten_ban,
+        maBan: formData.ma_ban,
+        khuVucId: formData.khu_vuc_id,
+        sucChua: formData.suc_chua,
+        tuDongDuyetMon: formData.tu_dong_duyet_mon === 1
+      });
+
+      const tenKhuVuc = danhSachKhuVuc.find(k => k.id === Number(formData.khu_vuc_id))?.ten_khu_vuc || 'Tầng 1';
+
+      const banMoi = {
+        id: res?.duLieu?.id || Date.now(),
+        ma_ban: formData.ma_ban,
+        ten_ban: formData.ten_ban,
+        khu_vuc: tenKhuVuc,
+        khu_vuc_id: formData.khu_vuc_id,
+        so_cho: formData.suc_chua,
+        trang_thai: 'trong',
+        tu_dong_duyet_mon: formData.tu_dong_duyet_mon
+      };
+
+      setDanhSach(prev => [...prev, banMoi]);
+      setThongBao({ loai: 'thanhCong', noiDung: `Đã tạo thêm ${formData.ten_ban} thành công!` });
+      setHienModalThem(false);
+    } catch (err) {
+      alert('Lỗi tạo bàn mới: ' + (err.message || 'Không thể kết nối máy chủ'));
+    }
+  };
+
+  // Xóa bàn ăn
+  const handleXoaBan = async (ban) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa/ngừng sử dụng ${ban.ten_ban} (${ban.ma_ban})?`)) {
+      return;
+    }
+
+    try {
+      if (ban.id) {
+        await api.delete(`/api/ban-an/${ban.id}`);
+      }
+      setDanhSach(prev => prev.filter(b => b.ma_ban !== ban.ma_ban));
+      setThongBao({ loai: 'thanhCong', noiDung: `Đã xóa ${ban.ten_ban} khỏi danh sách hoạt động!` });
+    } catch (err) {
+      alert('Lỗi khi xóa bàn: ' + (err.message || 'Không thể kết nối máy chủ'));
+    }
   };
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
+      {/* Tiêu đề & Nút thao tác */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-black text-[#272d29] tracking-tight">
             Quản lý danh sách phòng & bàn ăn
           </h1>
           <p className="text-xs text-[#72776f] mt-1">
-            Thiết lập khu vực không gian nhà hàng, tạo bàn mới và đồng bộ sơ đồ
+            Thiết lập khu vực không gian nhà hàng, tạo bàn mới, chỉnh sửa thông tin và mã QR
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <button
             onClick={onChuyenSangTaoQr}
-            className="py-2.5 px-4 bg-white hover:bg-stone-50 border border-stone-200 text-[#272d29] rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs transition-colors"
+            className="py-2.5 px-4 bg-white hover:bg-stone-50 border border-stone-200 text-[#272d29] rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs transition-colors cursor-pointer"
           >
             <QrCode size={16} className="text-[#b64d2d]" />
             <span>Xuất mã QR các bàn (A11) →</span>
           </button>
 
           <button
-            onClick={themBanMoi}
-            className="py-2.5 px-4 bg-[#b64d2d] hover:bg-[#a14022] text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all"
+            onClick={handleMoThemBan}
+            className="py-2.5 px-4 bg-[#b64d2d] hover:bg-[#a14022] text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
           >
             <Plus size={16} />
             <span>Thêm bàn mới</span>
@@ -63,14 +217,27 @@ export default function TrangQuanLyPhongBan({ onChuyenSangTaoQr }) {
         </div>
       </div>
 
+      {/* Thông báo kết quả thao tác */}
+      {thongBao && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 text-[#226b4c] border border-emerald-200 text-xs font-bold flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} />
+            <span>{thongBao.noiDung}</span>
+          </div>
+          <button onClick={() => setThongBao(null)} className="text-stone-400 hover:text-stone-600">
+            <X size={15} />
+          </button>
+        </div>
+      )}
+
       {/* Bộ lọc khu vực */}
       <div className="flex items-center gap-2">
-        {['Tất cả', 'Tầng 1', 'Tầng 2', 'Sân vườn'].map(kv => (
+        {['Tất cả', 'Tầng 1', 'Tầng 2', 'Sân Vườn', 'VIP'].map(kv => (
           <button
             key={kv}
             onClick={() => setKhuVucChon(kv)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-              khuVucChon === kv ? 'bg-[#272d29] text-white shadow-xs' : 'bg-white text-stone-600 border border-stone-200'
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              khuVucChon === kv ? 'bg-[#272d29] text-white shadow-xs' : 'bg-white text-stone-600 border border-stone-200 hover:border-stone-300'
             }`}
           >
             {kv}
@@ -79,26 +246,255 @@ export default function TrangQuanLyPhongBan({ onChuyenSangTaoQr }) {
       </div>
 
       {/* Lưới các bàn */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {banLoc.map((b) => (
-          <div key={b.ma_ban} className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between h-36">
+          <div
+            key={b.ma_ban}
+            className="bg-white p-5 rounded-2xl border border-stone-200 shadow-xs flex flex-col justify-between h-40 group hover:border-[#b64d2d]/40 hover:shadow-md transition-all relative"
+          >
             <div className="flex justify-between items-start">
               <div>
                 <span className="font-mono text-xs font-bold text-[#b64d2d] uppercase block">{b.ma_ban}</span>
-                <h3 className="text-xl font-black text-[#272d29]">{b.ten_ban}</h3>
+                <h3 className="text-xl font-black text-[#272d29] mt-0.5">{b.ten_ban}</h3>
               </div>
-              <span className="text-xs bg-stone-100 text-stone-600 px-2.5 py-1 rounded-full font-semibold">
-                {b.so_cho} chỗ
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs bg-stone-100 text-stone-600 px-2.5 py-1 rounded-full font-semibold flex items-center gap-1">
+                  <Users size={12} />
+                  <span>{b.so_cho} chỗ</span>
+                </span>
+              </div>
             </div>
 
             <div className="flex justify-between items-center pt-3 border-t border-stone-100 text-xs">
-              <span className="text-stone-500 font-medium">{b.khu_vuc}</span>
-              <span className="text-emerald-700 font-bold">Hoạt động</span>
+              <span className="text-stone-500 font-medium truncate max-w-[130px]">{b.khu_vuc}</span>
+
+              {/* Nút hành động Chỉnh sửa / Xóa */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handleMoSuaBan(b)}
+                  title="Chỉnh sửa thông tin bàn"
+                  className="p-1.5 rounded-lg text-stone-500 hover:text-[#b64d2d] hover:bg-[#f9ede6] transition-colors cursor-pointer"
+                >
+                  <Edit2 size={15} />
+                </button>
+                <button
+                  onClick={() => handleXoaBan(b)}
+                  title="Xóa bàn"
+                  className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* MODAL CHỈNH SỬA THÔNG TIN BÀN */}
+      {banDangSua && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-stone-200 animate-in fade-in zoom-in duration-150">
+            <div className="bg-[#272d29] text-white p-4 flex justify-between items-center">
+              <div>
+                <span className="text-[10px] font-bold text-[#f9ede6] uppercase tracking-wider block">QUẢN LÝ BÀN ĂN</span>
+                <h3 className="font-bold text-sm">Chỉnh sửa thông tin {banDangSua.ten_ban}</h3>
+              </div>
+              <button onClick={() => setBanDangSua(null)} className="p-1 rounded-full hover:bg-white/10 text-white/70">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleLuuSuaBan} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">MÃ BÀN *</label>
+                <input
+                  type="text"
+                  value={formData.ma_ban}
+                  onChange={(e) => setFormData({ ...formData, ma_ban: e.target.value })}
+                  required
+                  placeholder="Ví dụ: B08, VIP01"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 font-mono font-bold text-[#272d29]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">TÊN HIỂN THỊ BÀN *</label>
+                <input
+                  type="text"
+                  value={formData.ten_ban}
+                  onChange={(e) => setFormData({ ...formData, ten_ban: e.target.value })}
+                  required
+                  placeholder="Ví dụ: Bàn 08, Phòng VIP Hoàng Gia"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 font-bold text-[#272d29]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">KHU VỰC *</label>
+                  <select
+                    value={formData.khu_vuc_id}
+                    onChange={(e) => setFormData({ ...formData, khu_vuc_id: Number(e.target.value) })}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 font-semibold text-[#272d29]"
+                  >
+                    {danhSachKhuVuc.map(kv => (
+                      <option key={kv.id} value={kv.id}>{kv.ten_khu_vuc}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">SỐ CHỖ NGỒI *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={formData.suc_chua}
+                    onChange={(e) => setFormData({ ...formData, suc_chua: Number(e.target.value) })}
+                    required
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 font-bold text-[#272d29]"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className="flex items-center gap-2 cursor-pointer p-3 bg-stone-50 rounded-xl border border-stone-200">
+                  <input
+                    type="checkbox"
+                    checked={formData.tu_dong_duyet_mon === 1}
+                    onChange={(e) => setFormData({ ...formData, tu_dong_duyet_mon: e.target.checked ? 1 : 0 })}
+                    className="w-4 h-4 text-[#b64d2d] rounded accent-[#b64d2d]"
+                  />
+                  <div>
+                    <span className="font-bold text-stone-800 block">Tự động duyệt món (Fast Track)</span>
+                    <span className="text-[10px] text-stone-500">Khách quét QR đặt món chuyển thẳng Bếp KDS không cần phục vụ bấm duyệt</span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setBanDangSua(null)}
+                  className="flex-1 py-3 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 px-4 bg-[#b64d2d] hover:bg-[#a14022] text-white rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                >
+                  <Check size={16} />
+                  <span>Lưu thay đổi</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL THÊM BÀN ĂN MỚI */}
+      {hienModalThem && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-stone-200 animate-in fade-in zoom-in duration-150">
+            <div className="bg-[#272d29] text-white p-4 flex justify-between items-center">
+              <div>
+                <span className="text-[10px] font-bold text-[#f9ede6] uppercase tracking-wider block">THÊM MỚI PHÒNG BÀN</span>
+                <h3 className="font-bold text-sm">Khởi tạo bàn ăn & mã QR mới</h3>
+              </div>
+              <button onClick={() => setHienModalThem(false)} className="p-1 rounded-full hover:bg-white/10 text-white/70">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleLuuThemBan} className="p-6 space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">MÃ BÀN *</label>
+                <input
+                  type="text"
+                  value={formData.ma_ban}
+                  onChange={(e) => setFormData({ ...formData, ma_ban: e.target.value })}
+                  required
+                  placeholder="Ví dụ: B19, VIP02"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 font-mono font-bold text-[#272d29]"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">TÊN HIỂN THỊ BÀN *</label>
+                <input
+                  type="text"
+                  value={formData.ten_ban}
+                  onChange={(e) => setFormData({ ...formData, ten_ban: e.target.value })}
+                  required
+                  placeholder="Ví dụ: Bàn 19"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 font-bold text-[#272d29]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">KHU VỰC *</label>
+                  <select
+                    value={formData.khu_vuc_id}
+                    onChange={(e) => setFormData({ ...formData, khu_vuc_id: Number(e.target.value) })}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 font-semibold text-[#272d29]"
+                  >
+                    {danhSachKhuVuc.map(kv => (
+                      <option key={kv.id} value={kv.id}>{kv.ten_khu_vuc}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-stone-700 mb-1">SỐ CHỖ NGỒI *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={formData.suc_chua}
+                    onChange={(e) => setFormData({ ...formData, suc_chua: Number(e.target.value) })}
+                    required
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 font-bold text-[#272d29]"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <label className="flex items-center gap-2 cursor-pointer p-3 bg-stone-50 rounded-xl border border-stone-200">
+                  <input
+                    type="checkbox"
+                    checked={formData.tu_dong_duyet_mon === 1}
+                    onChange={(e) => setFormData({ ...formData, tu_dong_duyet_mon: e.target.checked ? 1 : 0 })}
+                    className="w-4 h-4 text-[#b64d2d] rounded accent-[#b64d2d]"
+                  />
+                  <div>
+                    <span className="font-bold text-stone-800 block">Tự động duyệt món (Fast Track)</span>
+                    <span className="text-[10px] text-stone-500">Khách quét QR đặt món chuyển thẳng Bếp KDS</span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="flex gap-2 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setHienModalThem(false)}
+                  className="flex-1 py-3 px-4 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl font-bold transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 px-4 bg-[#b64d2d] hover:bg-[#a14022] text-white rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                >
+                  <Plus size={16} />
+                  <span>Tạo bàn mới</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -85,6 +85,49 @@ const banAnModel = {
             ORDER BY thu_tu_hien_thi ASC;
         `;
         return truyVanNhieu(sql);
+    },
+
+    capNhatThongTin(id, { tenBan, maBan, khuVucId, sucChua, tuDongDuyetMon, kichHoat = 1 }) {
+        const sql = `
+            UPDATE ban_an 
+            SET ten_ban = COALESCE(?, ten_ban),
+                ma_ban = COALESCE(?, ma_ban),
+                khu_vuc_id = COALESCE(?, khu_vuc_id),
+                suc_chua = COALESCE(?, suc_chua),
+                tu_dong_duyet_mon = COALESCE(?, tu_dong_duyet_mon),
+                kich_hoat = COALESCE(?, kich_hoat),
+                ngay_cap_nhat = CURRENT_TIMESTAMP
+            WHERE id = ?;
+        `;
+        return thucThi(sql, [tenBan, maBan, khuVucId, sucChua, tuDongDuyetMon, kichHoat, id]);
+    },
+
+    taoBan({ maBan, tenBan, khuVucId, sucChua = 4, maQrToken, tuDongDuyetMon = 0 }) {
+        const token = maQrToken || `BAN_${maBan}_TOKEN_${Date.now()}`;
+        const sql = `
+            INSERT INTO ban_an (khu_vuc_id, ma_ban, ten_ban, suc_chua, trang_thai, ma_qr_token, tu_dong_duyet_mon, kich_hoat)
+            VALUES (?, ?, ?, ?, 'trong', ?, ?, 1);
+        `;
+        const res = thucThi(sql, [khuVucId, maBan, tenBan, sucChua, token, tuDongDuyetMon]);
+        return {
+            id: res.lastInsertRowid,
+            maBan,
+            tenBan,
+            khuVucId,
+            sucChua,
+            maQrToken: token,
+            tuDongDuyetMon
+        };
+    },
+
+    xoaBan(id) {
+        // Vô hiệu hóa bàn ăn (soft delete) để bảo toàn tính toàn vẹn các hóa đơn cũ
+        const sql = `
+            UPDATE ban_an 
+            SET kich_hoat = 0, ngay_cap_nhat = CURRENT_TIMESTAMP 
+            WHERE id = ?;
+        `;
+        return thucThi(sql, [id]);
     }
 };
 

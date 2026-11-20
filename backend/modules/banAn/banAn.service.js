@@ -288,6 +288,98 @@ const banAnService = {
         });
 
         return { banId, trangThai };
+    },
+
+    layDanhSachKhuVuc() {
+        return banAnModel.layDanhSachKhuVuc();
+    },
+
+    capNhatThongTin(banId, { tenBan, maBan, khuVucId, sucChua, tuDongDuyetMon, kichHoat }, nguoiThaoTacId = null) {
+        const banCu = banAnModel.timTheoId(banId);
+        if (!banCu) {
+            const loi = new Error('Không tìm thấy bàn ăn');
+            loi.status = 404;
+            throw loi;
+        }
+
+        banAnModel.capNhatThongTin(banId, {
+            tenBan: tenBan ? String(tenBan).trim() : banCu.ten_ban,
+            maBan: maBan ? String(maBan).trim() : banCu.ma_ban,
+            khuVucId: khuVucId ? Number(khuVucId) : banCu.khu_vuc_id,
+            sucChua: sucChua ? Number(sucChua) : banCu.suc_chua,
+            tuDongDuyetMon: tuDongDuyetMon !== undefined ? (tuDongDuyetMon ? 1 : 0) : banCu.tu_dong_duyet_mon,
+            kichHoat: kichHoat !== undefined ? (kichHoat ? 1 : 0) : banCu.kich_hoat
+        });
+
+        const banMoi = banAnModel.timTheoId(banId);
+
+        ghiAuditLog({
+            taiKhoanId: nguoiThaoTacId,
+            hanhDong: 'CAP_NHAT_BAN_AN',
+            bangAnhHuong: 'ban_an',
+            banGhiId: banId,
+            duLieuCu: banCu,
+            duLieuMoi: banMoi,
+            lyDo: `Cập nhật thông tin bàn ${banMoi.ten_ban}`
+        });
+
+        socketPhat.trangThaiBan({ banId, trangThai: banMoi.trang_thai });
+
+        return banMoi;
+    },
+
+    taoBan({ maBan, tenBan, khuVucId, sucChua, tuDongDuyetMon }, nguoiThaoTacId = null) {
+        if (!maBan || !tenBan || !khuVucId) {
+            const loi = new Error('Mã bàn, tên bàn và khu vực không được để trống');
+            loi.status = 400;
+            throw loi;
+        }
+
+        const banMoi = banAnModel.taoBan({
+            maBan: String(maBan).trim(),
+            tenBan: String(tenBan).trim(),
+            khuVucId: Number(khuVucId),
+            sucChua: Number(sucChua) || 4,
+            tuDongDuyetMon: tuDongDuyetMon ? 1 : 0
+        });
+
+        ghiAuditLog({
+            taiKhoanId: nguoiThaoTacId,
+            hanhDong: 'THEM_BAN_AN',
+            bangAnhHuong: 'ban_an',
+            banGhiId: banMoi.id,
+            duLieuMoi: banMoi,
+            lyDo: `Thêm bàn mới ${banMoi.tenBan} (${banMoi.maBan})`
+        });
+
+        return banMoi;
+    },
+
+    xoaBan(banId, nguoiThaoTacId = null) {
+        const ban = banAnModel.timTheoId(banId);
+        if (!ban) {
+            const loi = new Error('Không tìm thấy bàn ăn');
+            loi.status = 404;
+            throw loi;
+        }
+
+        if (ban.trang_thai !== 'trong') {
+            const loi = new Error(`Bàn ${ban.ten_ban} đang có khách hoặc chờ món, không thể xóa.`);
+            loi.status = 400;
+            throw loi;
+        }
+
+        banAnModel.xoaBan(banId);
+
+        ghiAuditLog({
+            taiKhoanId: nguoiThaoTacId,
+            hanhDong: 'XOA_BAN_AN',
+            bangAnhHuong: 'ban_an',
+            banGhiId: banId,
+            lyDo: `Xóa/ngừng hoạt động bàn ${ban.ten_ban}`
+        });
+
+        return { banId, daXoa: true };
     }
 };
 

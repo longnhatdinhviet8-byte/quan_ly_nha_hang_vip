@@ -93,6 +93,47 @@ const banAnController = {
         } catch (loi) {
             next(loi);
         }
+    },
+
+    layDanhSachKhuVuc(req, res, next) {
+        try {
+            const danhSach = banAnService.layDanhSachKhuVuc();
+            return phanHoiThanhCong(res, danhSach, 'Lấy danh sách khu vực thành công');
+        } catch (loi) {
+            next(loi);
+        }
+    },
+
+    capNhatThongTin(req, res, next) {
+        try {
+            const banId = Number(req.params.id);
+            const nguoiThaoTacId = req.nguoiDung ? req.nguoiDung.taiKhoanId : null;
+            const ketQua = banAnService.capNhatThongTin(banId, req.body, nguoiThaoTacId);
+            return phanHoiThanhCong(res, ketQua, 'Cập nhật thông tin bàn ăn thành công');
+        } catch (loi) {
+            next(loi);
+        }
+    },
+
+    taoBan(req, res, next) {
+        try {
+            const nguoiThaoTacId = req.nguoiDung ? req.nguoiDung.taiKhoanId : null;
+            const ketQua = banAnService.taoBan(req.body, nguoiThaoTacId);
+            return phanHoiThanhCong(res, ketQua, 'Thêm bàn ăn mới thành công', 201);
+        } catch (loi) {
+            next(loi);
+        }
+    },
+
+    xoaBan(req, res, next) {
+        try {
+            const banId = Number(req.params.id);
+            const nguoiThaoTacId = req.nguoiDung ? req.nguoiDung.taiKhoanId : null;
+            const ketQua = banAnService.xoaBan(banId, nguoiThaoTacId);
+            return phanHoiThanhCong(res, ketQua, 'Xóa bàn ăn thành công');
+        } catch (loi) {
+            next(loi);
+        }
     }
 };
 
