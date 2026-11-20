@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, QrCode, Check, X, Users, MapPin, CheckCircle2, AlertCircle } from 'lucide-react';
 import { DANH_SACH_BAN as DANH_SACH_BAN_MAU } from '../../dungChung/duLieuMau';
 import { api } from '../../dungChung/api';
+import ModalXacNhan from '../../thanhPhan/ModalXacNhan';
 
 export default function TrangQuanLyPhongBan({ onChuyenSangTaoQr }) {
   const [danhSach, setDanhSach] = useState(DANH_SACH_BAN_MAU);
@@ -23,6 +24,7 @@ export default function TrangQuanLyPhongBan({ onChuyenSangTaoQr }) {
   // State Modal Chỉnh sửa / Thêm mới
   const [banDangSua, setBanDangSua] = useState(null);
   const [hienModalThem, setHienModalThem] = useState(false);
+  const [xacNhanXoaBan, setXacNhanXoaBan] = useState(null);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -168,21 +170,30 @@ export default function TrangQuanLyPhongBan({ onChuyenSangTaoQr }) {
     }
   };
 
-  // Xóa bàn ăn
-  const handleXoaBan = async (ban) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa/ngừng sử dụng ${ban.ten_ban} (${ban.ma_ban})?`)) {
-      return;
-    }
-
-    try {
-      if (ban.id) {
-        await api.delete(`/api/ban-an/${ban.id}`);
+  // Xóa bàn ăn (Mở Modal Xác nhận Figma)
+  const handleXoaBan = (ban) => {
+    setXacNhanXoaBan({
+      ban,
+      tieuDe: `Xác nhận xóa: ${ban.ten_ban}`,
+      phanLoai: 'QUẢN LÝ PHÒNG BÀN',
+      noiDung: `Bạn có chắc chắn muốn xóa/ngừng sử dụng bàn "${ban.ten_ban}" (${ban.ma_ban})?`,
+      canhBaoPhu: 'Bàn này sẽ được loại bỏ khỏi sơ đồ phục vụ nhà hàng.',
+      loai: 'nguyHiem',
+      nhanNutXacNhan: 'Xóa bàn',
+      onThucHien: async () => {
+        try {
+          if (ban.id) {
+            await api.delete(`/api/ban-an/${ban.id}`);
+          }
+          setDanhSach(prev => prev.filter(b => b.ma_ban !== ban.ma_ban));
+          setThongBao({ loai: 'thanhCong', noiDung: `Đã xóa ${ban.ten_ban} khỏi danh sách hoạt động!` });
+        } catch (err) {
+          alert('Lỗi khi xóa bàn: ' + (err.message || 'Không thể kết nối máy chủ'));
+        } finally {
+          setXacNhanXoaBan(null);
+        }
       }
-      setDanhSach(prev => prev.filter(b => b.ma_ban !== ban.ma_ban));
-      setThongBao({ loai: 'thanhCong', noiDung: `Đã xóa ${ban.ten_ban} khỏi danh sách hoạt động!` });
-    } catch (err) {
-      alert('Lỗi khi xóa bàn: ' + (err.message || 'Không thể kết nối máy chủ'));
-    }
+    });
   };
 
   return (
@@ -494,6 +505,21 @@ export default function TrangQuanLyPhongBan({ onChuyenSangTaoQr }) {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Modal Xác nhận Xóa Bàn chuẩn Figma */}
+      {xacNhanXoaBan && (
+        <ModalXacNhan
+          hienThi={!!xacNhanXoaBan}
+          tieuDe={xacNhanXoaBan.tieuDe}
+          phanLoai={xacNhanXoaBan.phanLoai}
+          noiDung={xacNhanXoaBan.noiDung}
+          canhBaoPhu={xacNhanXoaBan.canhBaoPhu}
+          loai={xacNhanXoaBan.loai}
+          nhanNutXacNhan={xacNhanXoaBan.nhanNutXacNhan}
+          onXacNhan={xacNhanXoaBan.onThucHien}
+          onHuy={() => setXacNhanXoaBan(null)}
+        />
       )}
     </div>
   );

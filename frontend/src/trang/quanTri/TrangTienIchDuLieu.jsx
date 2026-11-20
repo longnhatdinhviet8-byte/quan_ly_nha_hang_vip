@@ -6,91 +6,111 @@
 import React, { useState } from 'react';
 import { Database, RefreshCw, Trash2, CheckCircle2, AlertTriangle, ShieldAlert, Sparkles, HardDrive } from 'lucide-react';
 import { api } from '../../dungChung/api';
+import ModalXacNhan from '../../thanhPhan/ModalXacNhan';
 
 export default function TrangTienIchDuLieu() {
   const [dangXuLy, setDangXuLy] = useState(false);
   const [thongBao, setThongBao] = useState(null);
   const [chiTietLog, setChiTietLog] = useState('');
+  const [xacNhanAction, setXacNhanAction] = useState(null);
 
   // Sinh dữ liệu mẫu
-  const handleSinhDuLieuMau = async () => {
-    if (!window.confirm('Bạn có chắc muốn nạp toàn bộ dữ liệu mẫu chuẩn Figma (bàn ăn, món ăn, nhân viên, phân ca, đơn mẫu)?')) {
-      return;
-    }
-
-    setDangXuLy(true);
-    setThongBao(null);
-    setChiTietLog('');
-
-    try {
-      const res = await api.post('/api/he-thong/sinh-du-lieu-mau', {});
-      setThongBao({
-        loai: 'thanhCong',
-        noiDung: res.thongBao || 'Đã sinh dữ liệu mẫu thành công!'
-      });
-      setChiTietLog(JSON.stringify(res.duLieu || res, null, 2));
-    } catch (err) {
-      setThongBao({
-        loai: 'loi',
-        noiDung: 'Lỗi khi sinh dữ liệu mẫu: ' + (err.message || 'Không thể kết nối máy chủ')
-      });
-    } finally {
-      setDangXuLy(false);
-    }
+  const handleSinhDuLieuMau = () => {
+    setXacNhanAction({
+      tieuDe: 'Nạp dữ liệu mẫu nhà hàng',
+      phanLoai: 'TIỆN ÍCH CƠ SỞ DỮ LIỆU',
+      noiDung: 'Bạn có chắc muốn nạp toàn bộ dữ liệu mẫu chuẩn Figma (bàn ăn, món ăn, nhân viên, phân ca, đơn mẫu)?',
+      canhBaoPhu: 'Dữ liệu mẫu sẽ giúp bạn trải nghiệm đầy đủ các phân hệ POS, KDS và E-Menu.',
+      loai: 'thongTin',
+      nhanNutXacNhan: 'Nạp dữ liệu mẫu',
+      onThucHien: async () => {
+        setDangXuLy(true);
+        setThongBao(null);
+        setChiTietLog('');
+        try {
+          const res = await api.post('/api/he-thong/sinh-du-lieu-mau', {});
+          setThongBao({
+            loai: 'thanhCong',
+            noiDung: res.thongBao || 'Đã sinh dữ liệu mẫu thành công!'
+          });
+          setChiTietLog(JSON.stringify(res.duLieu || res, null, 2));
+        } catch (err) {
+          setThongBao({
+            loai: 'loi',
+            noiDung: 'Lỗi khi sinh dữ liệu mẫu: ' + (err.message || 'Không thể kết nối máy chủ')
+          });
+        } finally {
+          setDangXuLy(false);
+          setXacNhanAction(null);
+        }
+      }
+    });
   };
 
   // Làm sạch đơn hàng & ca làm việc (giữ danh mục, món ăn, bàn ăn, nhân viên)
-  const handleLamSachNghiepVu = async () => {
-    if (!window.confirm('Hành động này sẽ xóa sạch: toàn bộ đơn gọi món, hóa đơn, lịch sử chia tiền, phiên bàn và yêu cầu hỗ trợ. Bạn có chắc không?')) {
-      return;
-    }
-
-    setDangXuLy(true);
-    setThongBao(null);
-    setChiTietLog('');
-
-    try {
-      const res = await api.post('/api/he-thong/lam-sach-du-lieu', { toanBo: false });
-      setThongBao({
-        loai: 'thanhCong',
-        noiDung: res.thongBao || 'Đã dọn dẹp sạch sẽ toàn bộ phiên giao dịch và đơn gọi món!'
-      });
-      setChiTietLog(JSON.stringify(res.duLieu || res, null, 2));
-    } catch (err) {
-      setThongBao({
-        loai: 'loi',
-        noiDung: 'Lỗi khi làm sạch dữ liệu: ' + (err.message || 'Không thể kết nối máy chủ')
-      });
-    } finally {
-      setDangXuLy(false);
-    }
+  const handleLamSachNghiepVu = () => {
+    setXacNhanAction({
+      tieuDe: 'Làm sạch đơn gọi món & phiên bàn',
+      phanLoai: 'DỌN DẸP DỮ LIỆU GIAO DỊCH',
+      noiDung: 'Hành động này sẽ xóa sạch: toàn bộ đơn gọi món, hóa đơn, lịch sử chia tiền, phiên bàn và yêu cầu hỗ trợ (vẫn giữ nguyên danh mục món, bàn ăn và nhân viên).',
+      canhBaoPhu: 'Thao tác này phù hợp khi bạn muốn bắt đầu một ngày kinh doanh mới.',
+      loai: 'canhBao',
+      nhanNutXacNhan: 'Làm sạch giao dịch',
+      onThucHien: async () => {
+        setDangXuLy(true);
+        setThongBao(null);
+        setChiTietLog('');
+        try {
+          const res = await api.post('/api/he-thong/lam-sach-du-lieu', { toanBo: false });
+          setThongBao({
+            loai: 'thanhCong',
+            noiDung: res.thongBao || 'Đã dọn dẹp sạch sẽ toàn bộ phiên giao dịch và đơn gọi món!'
+          });
+          setChiTietLog(JSON.stringify(res.duLieu || res, null, 2));
+        } catch (err) {
+          setThongBao({
+            loai: 'loi',
+            noiDung: 'Lỗi khi làm sạch dữ liệu: ' + (err.message || 'Không thể kết nối máy chủ')
+          });
+        } finally {
+          setDangXuLy(false);
+          setXacNhanAction(null);
+        }
+      }
+    });
   };
 
   // Xóa trắng toàn bộ 24 bảng CSDL
-  const handleXoaToanBo = async () => {
-    if (!window.confirm('CẢNH BÁO NGUY HIỂM: Bạn đang chuẩn bị XÓA TRẮNG TOÀN BỘ 24 BẢNG trong CSDL (bao gồm cả nhân viên, món ăn, bàn ăn). Bạn có hoàn toàn chắc chắn không?')) {
-      return;
-    }
-
-    setDangXuLy(true);
-    setThongBao(null);
-    setChiTietLog('');
-
-    try {
-      const res = await api.post('/api/he-thong/lam-sach-du-lieu', { toanBo: true });
-      setThongBao({
-        loai: 'canhBao',
-        noiDung: res.thongBao || 'Đã xóa trắng hoàn toàn toàn bộ CSDL!'
-      });
-      setChiTietLog(JSON.stringify(res.duLieu || res, null, 2));
-    } catch (err) {
-      setThongBao({
-        loai: 'loi',
-        noiDung: 'Lỗi khi xóa CSDL: ' + (err.message || 'Không thể kết nối máy chủ')
-      });
-    } finally {
-      setDangXuLy(false);
-    }
+  const handleXoaToanBo = () => {
+    setXacNhanAction({
+      tieuDe: 'Xóa trắng toàn bộ 24 bảng CSDL',
+      phanLoai: 'CẢNH BÁO NGUY HIỂM TỐI CAO',
+      noiDung: 'CẢNH BÁO: Bạn đang chuẩn bị XÓA TRẮNG TOÀN BỘ 24 BẢNG trong CSDL (bao gồm cả nhân viên, món ăn, phòng bàn, phân quyền).',
+      canhBaoPhu: '⚠️ Dữ liệu sau khi xóa sẽ không thể phục hồi trừ khi bạn đã sao lưu hoặc nạp lại dữ liệu mẫu.',
+      loai: 'nguyHiem',
+      nhanNutXacNhan: 'Xóa trắng CSDL',
+      onThucHien: async () => {
+        setDangXuLy(true);
+        setThongBao(null);
+        setChiTietLog('');
+        try {
+          const res = await api.post('/api/he-thong/lam-sach-du-lieu', { toanBo: true });
+          setThongBao({
+            loai: 'canhBao',
+            noiDung: res.thongBao || 'Đã xóa trắng hoàn toàn toàn bộ CSDL!'
+          });
+          setChiTietLog(JSON.stringify(res.duLieu || res, null, 2));
+        } catch (err) {
+          setThongBao({
+            loai: 'loi',
+            noiDung: 'Lỗi khi xóa CSDL: ' + (err.message || 'Không thể kết nối máy chủ')
+          });
+        } finally {
+          setDangXuLy(false);
+          setXacNhanAction(null);
+        }
+      }
+    });
   };
 
   // Sao lưu snapshot CSDL tức thì
@@ -249,6 +269,22 @@ export default function TrangTienIchDuLieu() {
             {chiTietLog}
           </pre>
         </div>
+      )}
+
+      {/* Modal Xác nhận Hành động chuẩn Figma */}
+      {xacNhanAction && (
+        <ModalXacNhan
+          hienThi={!!xacNhanAction}
+          tieuDe={xacNhanAction.tieuDe}
+          phanLoai={xacNhanAction.phanLoai}
+          noiDung={xacNhanAction.noiDung}
+          canhBaoPhu={xacNhanAction.canhBaoPhu}
+          loai={xacNhanAction.loai}
+          nhanNutXacNhan={xacNhanAction.nhanNutXacNhan}
+          onXacNhan={xacNhanAction.onThucHien}
+          onHuy={() => setXacNhanAction(null)}
+          dangXuLy={dangXuLy}
+        />
       )}
     </div>
   );

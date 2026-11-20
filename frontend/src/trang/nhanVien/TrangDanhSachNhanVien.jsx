@@ -12,6 +12,7 @@ import ModalHoSoNhanVien from './ModalHoSoNhanVien';
 import ModalPhanQuyenGiaoBan from './ModalPhanQuyenGiaoBan';
 import ModalCapTaiKhoan from './ModalCapTaiKhoan';
 import ModalChinhSuaNhanVien from './ModalChinhSuaNhanVien';
+import ModalXacNhan from '../../thanhPhan/ModalXacNhan';
 import { DANH_SACH_NHAN_SU as DANH_SACH_NHAN_SU_MAU } from '../../dungChung/duLieuMau';
 import { api } from '../../dungChung/api';
 
@@ -26,6 +27,7 @@ export default function TrangDanhSachNhanVien() {
   const [nhanVienSua, setNhanVienSua] = useState(null);
   const [nhanVienPhanQuyen, setNhanVienPhanQuyen] = useState(null);
   const [hienCapTk, setHienCapTk] = useState(false);
+  const [xacNhanAction, setXacNhanAction] = useState(null);
 
   // Tải danh sách nhân sự thực tế từ máy chủ Backend
   const taiDanhSach = async () => {
@@ -88,38 +90,57 @@ export default function TrangDanhSachNhanVien() {
     showToast(`Đã cập nhật thông tin nhân viên "${duLieu.hoTen}" thành công!`);
   };
 
-  // 3. Đình chỉ / Kích hoạt lại nhân viên
-  const handleToggleDinhChi = async (nv) => {
+  // 3. Đình chỉ / Kích hoạt lại nhân viên (Mở Modal Xác nhận Figma)
+  const handleToggleDinhChi = (nv) => {
     const dangDinhChi = (nv.trang_thai === 'tam_nghi' || nv.trang_thai === 'tam_khoa');
     const trangThaiMoi = dangDinhChi ? 'dang_lam' : 'tam_khoa';
-    const hanhDong = dangDinhChi ? 'MỞ LẠI HOẠT ĐỘNG' : 'ĐÌNH CHỈ / TẠM KHÓA';
 
-    if (!window.confirm(`Bạn có chắc chắn muốn ${hanhDong} nhân viên "${nv.ho_ten}" (${nv.ten_dang_nhap}) không?\n${!dangDinhChi ? 'Nhân viên này sẽ bị khóa tài khoản và không thể đăng nhập vào hệ thống.' : 'Tài khoản nhân viên sẽ được khôi phục quyền đăng nhập.'}`)) {
-      return;
-    }
-
-    try {
-      const res = await api.put(`/api/tai-khoan/nhan-su/${nv.id}/trang-thai`, { trangThai: trangThaiMoi });
-      setDanhSach(prev => prev.map(item => item.id === nv.id ? { ...item, trang_thai: res.trang_thai, trang_thai_tk: res.trang_thai_tk } : item));
-      showToast(`Đã ${hanhDong.toLowerCase()} nhân viên "${nv.ho_ten}" thành công!`);
-    } catch (err) {
-      alert(`Lỗi: ${err.message}`);
-    }
+    setXacNhanAction({
+      tieuDe: dangDinhChi ? `Mở lại quyền làm việc: ${nv.ho_ten}` : `Đình chỉ công tác: ${nv.ho_ten}`,
+      phanLoai: 'QUẢN TRỊ TRẠNG THÁI NHÂN SỰ',
+      noiDung: dangDinhChi
+        ? `Khôi phục quyền làm việc và mở khóa đăng nhập cho nhân viên "${nv.ho_ten}" (Tài khoản: ${nv.ten_dang_nhap}).`
+        : `Bạn có chắc muốn đình chỉ công tác nhân viên "${nv.ho_ten}" (Tài khoản: ${nv.ten_dang_nhap})? Tài khoản này sẽ bị khóa và không thể đăng nhập vào hệ thống.`,
+      canhBaoPhu: dangDinhChi 
+        ? 'Nhân viên có thể đăng nhập nhận ca và phục vụ bàn bình thường.' 
+        : 'Bạn có thể mở khóa kích hoạt lại nhân viên bất cứ lúc nào.',
+      loai: dangDinhChi ? 'moKhoa' : 'canhBao',
+      nhanNutXacNhan: dangDinhChi ? 'Mở khóa nhân viên' : 'Đình chỉ công tác',
+      onThucHien: async () => {
+        try {
+          const res = await api.put(`/api/tai-khoan/nhan-su/${nv.id}/trang-thai`, { trangThai: trangThaiMoi });
+          setDanhSach(prev => prev.map(item => item.id === nv.id ? { ...item, trang_thai: res.trang_thai, trang_thai_tk: res.trang_thai_tk } : item));
+          showToast(`Đã ${dangDinhChi ? 'mở lại hoạt động' : 'đình chỉ công tác'} nhân viên "${nv.ho_ten}" thành công!`);
+        } catch (err) {
+          showToast(`Lỗi: ${err.message}`, 'loi');
+        } finally {
+          setXacNhanAction(null);
+        }
+      }
+    });
   };
 
-  // 4. Xóa nhân viên khỏi hệ thống
-  const handleXoaNhanVien = async (nv) => {
-    if (!window.confirm(`⚠️ CẢNH BÁO XÓA NHÂN SỰ:\nBạn có chắc chắn muốn XÓA VĨNH VIỄN nhân viên "${nv.ho_ten}" (Tài khoản: ${nv.ten_dang_nhap})?\nThao tác này sẽ xóa hồ sơ và tài khoản nhân viên khỏi cơ sở dữ liệu.`)) {
-      return;
-    }
-
-    try {
-      await api.delete(`/api/tai-khoan/nhan-su/${nv.id}`);
-      setDanhSach(prev => prev.filter(item => item.id !== nv.id));
-      showToast(`Đã xóa vĩnh viễn nhân viên "${nv.ho_ten}" khỏi hệ thống!`);
-    } catch (err) {
-      alert(`Lỗi khi xóa nhân viên: ${err.message}`);
-    }
+  // 4. Xóa nhân viên khỏi hệ thống (Mở Modal Xác nhận Figma)
+  const handleXoaNhanVien = (nv) => {
+    setXacNhanAction({
+      tieuDe: `Xóa vĩnh viễn nhân sự: ${nv.ho_ten}`,
+      phanLoai: 'CẢNH BÁO XÓA NHÂN SỰ VĨNH VIỄN',
+      noiDung: `Bạn có chắc chắn muốn XÓA VĨNH VIỄN nhân viên "${nv.ho_ten}" (Tài khoản: ${nv.ten_dang_nhap}) khỏi hệ thống?`,
+      canhBaoPhu: '⚠️ Thao tác này không thể hoàn tác: Toàn bộ hồ sơ nhân sự và tài khoản đăng nhập sẽ bị xóa vĩnh viễn.',
+      loai: 'nguyHiem',
+      nhanNutXacNhan: 'Xóa vĩnh viễn',
+      onThucHien: async () => {
+        try {
+          await api.delete(`/api/tai-khoan/nhan-su/${nv.id}`);
+          setDanhSach(prev => prev.filter(item => item.id !== nv.id));
+          showToast(`Đã xóa vĩnh viễn nhân viên "${nv.ho_ten}" khỏi hệ thống!`);
+        } catch (err) {
+          showToast(`Lỗi khi xóa nhân viên: ${err.message}`, 'loi');
+        } finally {
+          setXacNhanAction(null);
+        }
+      }
+    });
   };
 
   const nhanSuLoc = danhSach.filter(nv => {
@@ -363,6 +384,21 @@ export default function TrangDanhSachNhanVien() {
         <ModalCapTaiKhoan
           onDong={() => setHienCapTk(false)}
           onTaoTaiKhoan={handleTaoTk}
+        />
+      )}
+
+      {/* Modal Xác nhận Hành động chuẩn Figma (Thay thế window.confirm popup mặc định) */}
+      {xacNhanAction && (
+        <ModalXacNhan
+          hienThi={!!xacNhanAction}
+          tieuDe={xacNhanAction.tieuDe}
+          phanLoai={xacNhanAction.phanLoai}
+          noiDung={xacNhanAction.noiDung}
+          canhBaoPhu={xacNhanAction.canhBaoPhu}
+          loai={xacNhanAction.loai}
+          nhanNutXacNhan={xacNhanAction.nhanNutXacNhan}
+          onXacNhan={xacNhanAction.onThucHien}
+          onHuy={() => setXacNhanAction(null)}
         />
       )}
     </div>
