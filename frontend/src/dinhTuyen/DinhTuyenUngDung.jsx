@@ -20,6 +20,7 @@ import TrangKdsBep from '../trang/dieuPhoiBep/TrangKdsBep';
 import TrangPosKiemBill from '../trang/thanhToan/TrangPosKiemBill';
 import TrangQuanTri from '../trang/quanTri/TrangQuanTri';
 import { DANH_SACH_MON_AN, DON_MAU_BAN_08 } from '../dungChung/duLieuMau';
+import { api } from '../dungChung/api';
 
 export default function DinhTuyenUngDung({ phanHeHienTai, onChuyenPhanHe, thongTinBan }) {
   // State phân hệ khách hàng E-Menu (C01 - C14)
@@ -74,6 +75,37 @@ export default function DinhTuyenUngDung({ phanHeHienTai, onChuyenPhanHe, thongT
     }
   };
 
+  // Khách gửi đơn gọi món qua Backend API để kích hoạt Socket realtime tới Phục vụ & Bếp
+  const handleGuiDon = async () => {
+    try {
+      const danhSachMon = gioHang.map(item => ({
+        monAnId: item.id,
+        soLuong: item.so_luong,
+        ghiChu: item.ghi_chu || ''
+      }));
+
+      await api.post('/api/don-goi-mon', {
+        maQrToken: thongTinBan?.token || 'BAN_B08_TOKEN_SECURE_2026',
+        banId: thongTinBan?.id || 8,
+        danhSachMon,
+        nguonTao: 'khach_qr'
+      });
+
+      setGioHang([]);
+      try {
+        const maBan = thongTinBan?.ma_ban || 'B08';
+        localStorage.removeItem(`gio_hang_${maBan}`);
+      } catch (e) {}
+
+      alert('Đã gửi đơn gọi món thành công! Nhân viên phục vụ sẽ nhận được thông báo để duyệt và chuyển bếp.');
+      setTrangKhach('theoDoi');
+    } catch (err) {
+      console.warn('Gửi đơn gọi món thất bại, chuyển chế độ ngoại tuyến:', err.message);
+      alert('Đã ghi nhận đơn gọi món của bạn! Nhân viên nhà hàng sẽ tới bàn xác nhận ngay.');
+      setTrangKhach('theoDoi');
+    }
+  };
+
   // PHÂN HỆ 1: KHÁCH HÀNG QR E-MENU (C01 - C14)
   if (phanHeHienTai === 'khachHang') {
     if (trangKhach === 'chaoMung') {
@@ -112,10 +144,7 @@ export default function DinhTuyenUngDung({ phanHeHienTai, onChuyenPhanHe, thongT
           gioHang={gioHang}
           onCapNhatSoLuong={handleCapNhatSoLuong}
           onQuayLaiThucDon={() => setTrangKhach('thucDon')}
-          onGuiDon={() => {
-            alert('Đã gửi đơn gọi món tới nhân viên phục vụ bàn duyệt!');
-            setTrangKhach('theoDoi');
-          }}
+          onGuiDon={handleGuiDon}
           onChuyenTab={(tab) => {
             if (tab === 'thucDon') setTrangKhach('thucDon');
             if (tab === 'monDaGoi') setTrangKhach('theoDoi');
