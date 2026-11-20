@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "mermaid": {
+      "command": "cmd.exe",
+      "args": ["/c", "npx", "-y", "mcp-mermaid"]
+    },
+    "plantuml": {
+      "command": "cmd.exe",
+      "args": ["/c", "npx", "-y", "plantuml-mcp-server"],
+      "env": {
+        "PLANTUML_SERVER_URL": "https://www.plantuml.com/plantuml"
+      }
+    },
+    "drawio": {
+      "command": "cmd.exe",
+      "args": ["/c", "npx", "-y", "@drawio/mcp"]
+    }
+  }
+}
