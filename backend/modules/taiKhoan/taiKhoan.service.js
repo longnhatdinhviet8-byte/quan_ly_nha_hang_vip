@@ -67,17 +67,21 @@ const taiKhoanService = {
             lyDo: `Đăng nhập thành công với vai trò ${taiKhoan.ten_vai_tro}`
         });
 
+        const thongTinNguoiDung = {
+            id: taiKhoan.id,
+            taiKhoanId: taiKhoan.id,
+            tenDangNhap: taiKhoan.ten_dang_nhap,
+            vaiTro: taiKhoan.ma_vai_tro,
+            tenVaiTro: taiKhoan.ten_vai_tro,
+            nhanVienId: taiKhoan.nhan_vien_id,
+            hoTen: taiKhoan.ho_ten,
+            soDienThoai: taiKhoan.so_dien_thoai
+        };
+
         return {
             token,
-            nguoiDung: {
-                taiKhoanId: taiKhoan.id,
-                tenDangNhap: taiKhoan.ten_dang_nhap,
-                vaiTro: taiKhoan.ma_vai_tro,
-                tenVaiTro: taiKhoan.ten_vai_tro,
-                nhanVienId: taiKhoan.nhan_vien_id,
-                hoTen: taiKhoan.ho_ten,
-                soDienThoai: taiKhoan.so_dien_thoai
-            }
+            nguoiDung: thongTinNguoiDung,
+            nhanVien: thongTinNguoiDung
         };
     },
 

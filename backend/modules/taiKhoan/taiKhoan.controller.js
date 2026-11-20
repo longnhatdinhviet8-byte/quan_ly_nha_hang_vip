@@ -9,7 +9,8 @@ const { phanHoiThanhCong, phanHoiLoi } = require('../../tienIch/dinhDangPhanHoi'
 const taiKhoanController = {
     async dangNhap(req, res, next) {
         try {
-            const { tenDangNhap, matKhau } = req.body;
+            const tenDangNhap = req.body.tenDangNhap || req.body.ten_dang_nhap;
+            const matKhau = req.body.matKhau || req.body.mat_khau;
             const diaChiIp = req.ip || req.connection.remoteAddress;
             const thietBi = req.headers['user-agent'];
 

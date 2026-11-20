@@ -20,14 +20,14 @@ router.get('/', xacThucTuyChon, banAnController.layDanhSach);
 router.get('/:id', xacThucTuyChon, banAnController.layChiTiet);
 
 // Quản lý bàn ăn (Thêm, Sửa, Xóa - Quản trị Admin A10)
-router.post('/', xacThucTuyChon, banAnController.taoBan);
-router.put('/:id', xacThucTuyChon, banAnController.capNhatThongTin);
-router.delete('/:id', xacThucTuyChon, banAnController.xoaBan);
+router.post('/', xacThucNguoiDung, phanQuyen('quan_ly'), banAnController.taoBan);
+router.put('/:id', xacThucNguoiDung, phanQuyen('quan_ly'), banAnController.capNhatThongTin);
+router.delete('/:id', xacThucNguoiDung, phanQuyen('quan_ly'), banAnController.xoaBan);
 
 // Nghiệp vụ vận hành bàn ăn (Phục vụ & Quản lý)
-router.post('/:id/mo-ban', xacThucTuyChon, banAnController.moBan);
-router.post('/chuyen-ban', xacThucTuyChon, banAnController.chuyenBan);
-router.post('/gop-ban', xacThucTuyChon, banAnController.gopBan);
-router.put('/:id/trang-thai', xacThucTuyChon, banAnController.doiTrangThai);
+router.post('/:id/mo-ban', xacThucNguoiDung, phanQuyen('phuc_vu', 'thu_ngan', 'quan_ly'), banAnController.moBan);
+router.post('/chuyen-ban', xacThucNguoiDung, phanQuyen('phuc_vu', 'thu_ngan', 'quan_ly'), banAnController.chuyenBan);
+router.post('/gop-ban', xacThucNguoiDung, phanQuyen('phuc_vu', 'thu_ngan', 'quan_ly'), banAnController.gopBan);
+router.put('/:id/trang-thai', xacThucNguoiDung, phanQuyen('phuc_vu', 'thu_ngan', 'quan_ly'), banAnController.doiTrangThai);
 
 module.exports = router;

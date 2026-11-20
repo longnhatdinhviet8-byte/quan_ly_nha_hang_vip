@@ -39,14 +39,27 @@ export default function App() {
     };
   };
 
-  // Lấy phân hệ từ URL search params hoặc thông tin đăng nhập
+  // Lấy phân hệ từ URL search params hoặc thông tin đăng nhập (Bảo vệ Route nội bộ)
   const layPhanHeKhoiTao = () => {
     const params = new URLSearchParams(window.location.search);
     const phanHeUrl = params.get('phanHe');
-    if (phanHeUrl) return phanHeUrl;
-
     const nguoiDung = api.layNguoiDung();
-    if (nguoiDung) {
+    const token = api.layToken();
+
+    const phanHeNoiBo = ['phucVu', 'bep', 'thuNgan', 'quanTri'];
+    if (phanHeNoiBo.includes(phanHeUrl)) {
+      if (!token || !nguoiDung) return 'dangNhap';
+      if (phanHeUrl === 'quanTri' && nguoiDung.vaiTro !== 'quan_ly') return 'dangNhap';
+      if (phanHeUrl === 'thuNgan' && nguoiDung.vaiTro !== 'thu_ngan' && nguoiDung.vaiTro !== 'quan_ly') return 'dangNhap';
+      if (phanHeUrl === 'bep' && nguoiDung.vaiTro !== 'bep' && nguoiDung.vaiTro !== 'quan_ly') return 'dangNhap';
+      if (phanHeUrl === 'phucVu' && nguoiDung.vaiTro !== 'phuc_vu' && nguoiDung.vaiTro !== 'quan_ly') return 'dangNhap';
+      return phanHeUrl;
+    }
+
+    if (phanHeUrl === 'dangNhap') return 'dangNhap';
+    if (phanHeUrl === 'khachHang') return 'khachHang';
+
+    if (nguoiDung && token) {
       if (nguoiDung.vaiTro === 'quan_ly') return 'quanTri';
       if (nguoiDung.vaiTro === 'thu_ngan') return 'thuNgan';
       if (nguoiDung.vaiTro === 'bep') return 'bep';

@@ -40,24 +40,27 @@ router.get(
     heThongController.layThongKeDashboard
 );
 
-// 5. Sinh dữ liệu mẫu chuẩn Figma (Quản lý hoặc setup)
+// 5. Sinh dữ liệu mẫu chuẩn Figma (Quản lý)
 router.post(
     '/sinh-du-lieu-mau',
-    xacThucTuyChon,
+    xacThucNguoiDung,
+    phanQuyen('quan_ly'),
     heThongController.sinhDuLieuMau
 );
 
-// 6. Làm sạch dữ liệu CSDL (Quản lý hoặc setup)
+// 6. Làm sạch dữ liệu CSDL (Quản lý)
 router.post(
     '/lam-sach-du-lieu',
-    xacThucTuyChon,
+    xacThucNguoiDung,
+    phanQuyen('quan_ly'),
     heThongController.lamSachDuLieu
 );
 
-// 7. Sao lưu CSDL tức thì (Snapshot Backup)
+// 7. Sao lưu CSDL tức thì (Snapshot Backup - Quản lý)
 router.post(
     '/sao-luu-csdl',
-    xacThucTuyChon,
+    xacThucNguoiDung,
+    phanQuyen('quan_ly'),
     heThongController.saoLuuCsdl
 );
 

@@ -54,7 +54,23 @@ export default function DinhTuyenUngDung({ phanHeHienTai, onChuyenPhanHe, thongT
   // State nhân viên phục vụ (W01 - W11)
   const [trangPhucVu, setTrangPhucVu] = useState('soDoBan'); // soDoBan, chiTietBan, caLamViec
   const [banDangXem, setBanDangXem] = useState(null);
-  const [nguoiDung, setNguoiDung] = useState(null);
+  const [nguoiDung, setNguoiDung] = useState(() => api.layNguoiDung());
+
+  // Đăng xuất và dọn dẹp sạch phiên làm việc
+  const handleDangXuat = () => {
+    api.dangXuat();
+    setNguoiDung(null);
+    onChuyenPhanHe('dangNhap');
+  };
+
+  // Kiểm tra quyền hạn trước khi hiển thị phân hệ nội bộ
+  const kiemTraQuyen = (danhSachQuyenChoPhep) => {
+    const userHienTai = nguoiDung || api.layNguoiDung();
+    const tokenHienTai = api.layToken();
+    if (!tokenHienTai || !userHienTai) return false;
+    if (userHienTai.vaiTro === 'quan_ly') return true;
+    return danhSachQuyenChoPhep.includes(userHienTai.vaiTro);
+  };
 
   // Thêm món vào giỏ
   const handleThemVaoGio = (monMoi) => {
@@ -214,6 +230,22 @@ export default function DinhTuyenUngDung({ phanHeHienTai, onChuyenPhanHe, thongT
 
   // PHÂN HỆ 2: NHÂN VIÊN PHỤC VỤ (W01 - W11)
   if (phanHeHienTai === 'phucVu') {
+    if (!kiemTraQuyen(['phuc_vu', 'quan_ly'])) {
+      return (
+        <TrangDangNhap
+          onQuayLaiMenuKhach={() => onChuyenPhanHe('khachHang')}
+          thongBaoBatBuoc="Vui lòng đăng nhập tài khoản Phục vụ hoặc Quản lý"
+          onDangNhapThanhCong={(user) => {
+            setNguoiDung(user);
+            if (user.vaiTro === 'quan_ly') onChuyenPhanHe('quanTri');
+            else if (user.vaiTro === 'thu_ngan') onChuyenPhanHe('thuNgan');
+            else if (user.vaiTro === 'bep') onChuyenPhanHe('bep');
+            else onChuyenPhanHe('phucVu');
+          }}
+        />
+      );
+    }
+
     if (trangPhucVu === 'chiTietBan' && banDangXem) {
       return (
         <TrangChiTietBan
@@ -232,7 +264,7 @@ export default function DinhTuyenUngDung({ phanHeHienTai, onChuyenPhanHe, thongT
         <TrangCaLamViecNhanVien
           onQuayLai={() => setTrangPhucVu('soDoBan')}
           onChuyenTab={(tab) => setTrangPhucVu(tab)}
-          onDangXuat={() => onChuyenPhanHe('dangNhap')}
+          onDangXuat={handleDangXuat}
         />
       );
     }
@@ -244,34 +276,82 @@ export default function DinhTuyenUngDung({ phanHeHienTai, onChuyenPhanHe, thongT
           setTrangPhucVu('chiTietBan');
         }}
         onChuyenTab={(tab) => setTrangPhucVu(tab)}
-        onDangXuat={() => onChuyenPhanHe('dangNhap')}
+        onDangXuat={handleDangXuat}
       />
     );
   }
 
   // PHÂN HỆ 3: BẾP THÔNG MINH KDS (K01 - K06)
   if (phanHeHienTai === 'bep') {
+    if (!kiemTraQuyen(['bep', 'quan_ly'])) {
+      return (
+        <TrangDangNhap
+          onQuayLaiMenuKhach={() => onChuyenPhanHe('khachHang')}
+          thongBaoBatBuoc="Vui lòng đăng nhập tài khoản Bếp KDS hoặc Quản lý"
+          onDangNhapThanhCong={(user) => {
+            setNguoiDung(user);
+            if (user.vaiTro === 'quan_ly') onChuyenPhanHe('quanTri');
+            else if (user.vaiTro === 'thu_ngan') onChuyenPhanHe('thuNgan');
+            else if (user.vaiTro === 'bep') onChuyenPhanHe('bep');
+            else onChuyenPhanHe('phucVu');
+          }}
+        />
+      );
+    }
+
     return (
       <TrangKdsBep
-        onDangXuat={() => onChuyenPhanHe('dangNhap')}
+        onDangXuat={handleDangXuat}
       />
     );
   }
 
   // PHÂN HỆ 4: THU NGÂN POS DESKTOP (P01 - P09)
   if (phanHeHienTai === 'thuNgan') {
+    if (!kiemTraQuyen(['thu_ngan', 'quan_ly'])) {
+      return (
+        <TrangDangNhap
+          onQuayLaiMenuKhach={() => onChuyenPhanHe('khachHang')}
+          thongBaoBatBuoc="Vui lòng đăng nhập tài khoản Thu ngân hoặc Quản lý"
+          onDangNhapThanhCong={(user) => {
+            setNguoiDung(user);
+            if (user.vaiTro === 'quan_ly') onChuyenPhanHe('quanTri');
+            else if (user.vaiTro === 'thu_ngan') onChuyenPhanHe('thuNgan');
+            else if (user.vaiTro === 'bep') onChuyenPhanHe('bep');
+            else onChuyenPhanHe('phucVu');
+          }}
+        />
+      );
+    }
+
     return (
       <TrangPosKiemBill
-        onDangXuat={() => onChuyenPhanHe('dangNhap')}
+        onDangXuat={handleDangXuat}
       />
     );
   }
 
   // PHÂN HỆ 5: QUẢN TRỊ NHÀ HÀNG ADMIN (A01 - A20)
   if (phanHeHienTai === 'quanTri') {
+    if (!kiemTraQuyen(['quan_ly'])) {
+      return (
+        <TrangDangNhap
+          onQuayLaiMenuKhach={() => onChuyenPhanHe('khachHang')}
+          thongBaoBatBuoc="Quyền truy cập bị từ chối: Cần tài khoản Quản trị viên (Admin)"
+          onDangNhapThanhCong={(user) => {
+            setNguoiDung(user);
+            if (user.vaiTro === 'quan_ly') onChuyenPhanHe('quanTri');
+            else if (user.vaiTro === 'thu_ngan') onChuyenPhanHe('thuNgan');
+            else if (user.vaiTro === 'bep') onChuyenPhanHe('bep');
+            else onChuyenPhanHe('phucVu');
+          }}
+        />
+      );
+    }
+
     return (
       <TrangQuanTri
-        onDangXuat={() => onChuyenPhanHe('dangNhap')}
+        onDangXuat={handleDangXuat}
       />
     );
   }

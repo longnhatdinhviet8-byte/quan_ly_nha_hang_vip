@@ -7,46 +7,44 @@ import React, { useState } from 'react';
 import { Lock, User, ArrowRight, ShieldCheck } from 'lucide-react';
 import { api } from '../../dungChung/api';
 
-export default function TrangDangNhap({ onDangNhapThanhCong, onQuayLaiMenuKhach }) {
+export default function TrangDangNhap({ onDangNhapThanhCong, onQuayLaiMenuKhach, thongBaoBatBuoc }) {
   const [tenDangNhap, setTenDangNhap] = useState('phucvu');
   const [matKhau, setMatKhau] = useState('123456');
   const [dangXuLy, setDangXuLy] = useState(false);
-  const [loi, setLoi] = useState('');
+  const [loi, setLoi] = useState(thongBaoBatBuoc || '');
 
   const handleDangNhap = async (e) => {
     if (e) e.preventDefault();
+    if (!tenDangNhap.trim() || !matKhau.trim()) {
+      setLoi('Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu');
+      return;
+    }
+
     setDangXuLy(true);
     setLoi('');
 
     try {
-      // Gọi API đăng nhập backend
+      // Gọi API đăng nhập backend thực tế
       const res = await api.post('/api/tai-khoan/dang-nhap', {
-        ten_dang_nhap: tenDangNhap,
-        mat_khau: matKhau
+        tenDangNhap: tenDangNhap.trim(),
+        matKhau: matKhau.trim(),
+        ten_dang_nhap: tenDangNhap.trim(),
+        mat_khau: matKhau.trim()
       });
 
+      const user = res.nguoiDung || res.nhanVien;
+      if (!res.token || !user) {
+        throw new Error('Dữ liệu xác thực không hợp lệ từ máy chủ');
+      }
+
       api.luuToken(res.token);
-      api.luuNguoiDung(res.nhanVien);
-      onDangNhapThanhCong(res.nhanVien);
-    } catch (err) {
-      console.warn('Đăng nhập API thất bại, sử dụng đăng nhập nội bộ:', err.message);
-      // Fallback cho tài khoản mẫu
-      const mockRoles = {
-        admin: { id: 1, hoTen: 'Nguyễn Minh Anh', vaiTro: 'quan_ly', ca: 'Ca tối · 17:00–22:00' },
-        thungan: { id: 2, hoTen: 'Trần Ngọc Mai', vaiTro: 'thu_ngan', ca: 'Ca tối · 17:00–22:00' },
-        bep: { id: 3, hoTen: 'Lê Quốc Huy', vaiTro: 'bep', ca: 'Ca tối · 17:00–22:00' },
-        phucvu: { id: 4, hoTen: 'Nguyễn Thị Lan', vaiTro: 'phuc_vu', ca: 'Ca tối · 17:00–22:00' }
-      };
-
-      const user = mockRoles[tenDangNhap] || {
-        id: 4,
-        hoTen: tenDangNhap === 'admin' ? 'Nguyễn Minh Anh' : 'Nguyễn Thị Lan',
-        vaiTro: tenDangNhap === 'admin' ? 'quan_ly' : tenDangNhap === 'thungan' ? 'thu_ngan' : tenDangNhap === 'bep' ? 'bep' : 'phuc_vu',
-        ca: 'Ca tối · 17:00–22:00'
-      };
-
       api.luuNguoiDung(user);
       onDangNhapThanhCong(user);
+    } catch (err) {
+      console.error('Đăng nhập thất bại:', err.message);
+      // Xóa mọi phiên cũ nếu có
+      api.dangXuat();
+      setLoi(err.message || 'Tên đăng nhập hoặc mật khẩu không chính xác');
     } finally {
       setDangXuLy(false);
     }

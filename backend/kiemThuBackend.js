@@ -285,6 +285,87 @@ async function chayKiemThu() {
         const jsonDashboard = await resDashboard.json();
         inKetQua('Lấy số liệu thống kê Dashboard thành công (A01)', jsonDashboard.ok === true && !!jsonDashboard.data.thongKeHomNay);
 
+        // TEST 9: Kiểm thử bảo mật chuyên sâu Authentication & RBAC Matrix
+        console.log('\n📋 NHÓM 9: KIỂM THỬ BẢO MẬT CHUYÊN SÂU AUTHENTICATION & RBAC MATRIX');
+
+        // 9.1: Đăng nhập với tài khoản không tồn tại -> 401
+        const resLoginKhongTonTai = await fetch(`${BASE_URL}/api/tai-khoan/dang-nhap`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenDangNhap: 'tai_khoan_ao_123', matKhau: '123456' })
+        });
+        inKetQua('Từ chối tài khoản không tồn tại với HTTP 401', resLoginKhongTonTai.status === 401);
+
+        // 9.2: Đăng nhập bỏ trống thông tin -> 400
+        const resLoginTrong = await fetch(`${BASE_URL}/api/tai-khoan/dang-nhap`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenDangNhap: '', matKhau: '' })
+        });
+        inKetQua('Từ chối đăng nhập rỗng với HTTP 400', resLoginTrong.status === 400);
+
+        // 9.3: Đăng nhập bằng định dạng snake_case -> 200 OK & nhận token
+        const resLoginSnake = await fetch(`${BASE_URL}/api/tai-khoan/dang-nhap`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ten_dang_nhap: 'admin', mat_khau: '123456' })
+        });
+        const jsonLoginSnake = await resLoginSnake.json();
+        inKetQua('Hỗ trợ đăng nhập snake_case và cấp token chuẩn', resLoginSnake.status === 200 && !!jsonLoginSnake.data.token && !!jsonLoginSnake.data.nhanVien);
+
+        // 9.4: Truy cập API cần đăng nhập mà KHÔNG có header Authorization -> 401
+        const resKhongToken = await fetch(`${BASE_URL}/api/tai-khoan/me`);
+        inKetQua('Từ chối truy cập không có token với HTTP 401', resKhongToken.status === 401);
+
+        // 9.5: Truy cập API với token giả mạo -> 401
+        const resTokenGia = await fetch(`${BASE_URL}/api/tai-khoan/me`, {
+            headers: { 'Authorization': 'Bearer fake_invalid_jwt_token_2026' }
+        });
+        inKetQua('Từ chối token giả mạo với HTTP 401', resTokenGia.status === 401);
+
+        // 9.6: RBAC - Phục vụ cố truy cập API thống kê của Quản lý -> 403 Forbidden
+        const resPhucVuVaoThongKe = await fetch(`${BASE_URL}/api/he-thong/thong-ke`, {
+            headers: { 'Authorization': `Bearer ${tokenPhucVu}` }
+        });
+        inKetQua('Chặn Phục vụ truy cập API Thống kê Quản trị (HTTP 403)', resPhucVuVaoThongKe.status === 403);
+
+        // 9.7: RBAC - Phục vụ cố tạo phòng bàn mới của Quản lý -> 403 Forbidden
+        const resPhucVuTaoBan = await fetch(`${BASE_URL}/api/ban-an`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokenPhucVu}`
+            },
+            body: JSON.stringify({ maBan: 'TEST99', tenBan: 'Bàn Test 99', khuVucId: 1, soCho: 4 })
+        });
+        inKetQua('Chặn Phục vụ tạo phòng bàn mới (HTTP 403)', resPhucVuTaoBan.status === 403);
+
+        // 9.8: RBAC - Bếp cố truy cập API Hóa đơn của Thu ngân -> 403 Forbidden
+        const resBepVaoHoaDon = await fetch(`${BASE_URL}/api/hoa-don`, {
+            headers: { 'Authorization': `Bearer ${tokenBep}` }
+        });
+        inKetQua('Chặn Bếp truy cập API Hóa đơn Thu ngân (HTTP 403)', resBepVaoHoaDon.status === 403);
+
+        // 9.9: RBAC - Quản lý có toàn quyền tạo bàn thành công -> 201 Created
+        const resAdminTaoBan = await fetch(`${BASE_URL}/api/ban-an`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokenAdmin}`
+            },
+            body: JSON.stringify({ maBan: 'TEST_RBAC', tenBan: 'Bàn RBAC Test', khuVucId: 1, soCho: 4 })
+        });
+        const jsonAdminTaoBan = await resAdminTaoBan.json();
+        inKetQua('Quản trị viên được cấp quyền tạo bàn thành công (HTTP 201)', resAdminTaoBan.status === 201 && jsonAdminTaoBan.ok === true);
+
+        // Dọn dẹp bàn test vừa tạo
+        if (jsonAdminTaoBan.data && jsonAdminTaoBan.data.id) {
+            await fetch(`${BASE_URL}/api/ban-an/${jsonAdminTaoBan.data.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${tokenAdmin}` }
+            });
+        }
+
         console.log('\n================================================================');
         console.log('🎉 TẤT CẢ CÁC BÀI KIỂM THỬ BACKEND ĐỀU ĐÃ ĐẠT 100%! (ALL PASSED)');
         console.log('================================================================\n');

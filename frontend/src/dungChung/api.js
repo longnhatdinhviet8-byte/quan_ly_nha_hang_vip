@@ -65,6 +65,9 @@ export const api = {
       const data = await res.json();
 
       if (!res.ok || data.ok === false) {
+        if (res.status === 401 && !duongDan.includes('/dang-nhap')) {
+          this.dangXuat();
+        }
         throw new Error(data.msg || `Lỗi máy chủ (${res.status})`);
       }
 
