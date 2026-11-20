@@ -347,13 +347,14 @@ async function chayKiemThu() {
         inKetQua('Chặn Bếp truy cập API Hóa đơn Thu ngân (HTTP 403)', resBepVaoHoaDon.status === 403);
 
         // 9.9: RBAC - Quản lý có toàn quyền tạo bàn thành công -> 201 Created
+        const maBanTest = 'T_' + Math.floor(Math.random() * 10000);
         const resAdminTaoBan = await fetch(`${BASE_URL}/api/ban-an`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${tokenAdmin}`
             },
-            body: JSON.stringify({ maBan: 'TEST_RBAC', tenBan: 'Bàn RBAC Test', khuVucId: 1, soCho: 4 })
+            body: JSON.stringify({ maBan: maBanTest, tenBan: 'Bàn RBAC Test', khuVucId: 1, soCho: 4 })
         });
         const jsonAdminTaoBan = await resAdminTaoBan.json();
         inKetQua('Quản trị viên được cấp quyền tạo bàn thành công (HTTP 201)', resAdminTaoBan.status === 201 && jsonAdminTaoBan.ok === true);
@@ -365,6 +366,102 @@ async function chayKiemThu() {
                 headers: { 'Authorization': `Bearer ${tokenAdmin}` }
             });
         }
+
+        // TEST 10: Quản trị Nhân sự & Tài khoản (A02, A03, A04, A05)
+        console.log('\n📋 NHÓM 10: QUẢN TRỊ NHÂN SỰ TOÀN HỆ THỐNG (CRUD, ĐÌNH CHỈ & XÓA)');
+
+        // 10.1: Lấy danh sách nhân sự
+        const resListNs = await fetch(`${BASE_URL}/api/tai-khoan/nhan-su`, {
+            headers: { 'Authorization': `Bearer ${tokenAdmin}` }
+        });
+        const jsonListNs = await resListNs.json();
+        inKetQua('Quản lý lấy danh sách nhân sự thành công', jsonListNs.ok === true && Array.isArray(jsonListNs.data) && jsonListNs.data.length >= 9);
+
+        // 10.2: Chặn Phục vụ truy cập danh sách nhân sự (RBAC 403)
+        const resPhucVuVaoNs = await fetch(`${BASE_URL}/api/tai-khoan/nhan-su`, {
+            headers: { 'Authorization': `Bearer ${tokenPhucVu}` }
+        });
+        inKetQua('Chặn Phục vụ xem danh sách nhân sự (HTTP 403)', resPhucVuVaoNs.status === 403);
+
+        // 10.3: Tạo nhân sự mới
+        const randomSuffix = Math.floor(Math.random() * 10000);
+        const resTaoNs = await fetch(`${BASE_URL}/api/tai-khoan/nhan-su`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokenAdmin}`
+            },
+            body: JSON.stringify({
+                hoTen: 'Trần Văn Nhân Sự Mới',
+                tenDangNhap: 'nhansu_' + randomSuffix,
+                matKhau: '123456',
+                vaiTro: 'phuc_vu',
+                soDienThoai: '09' + Math.floor(10000000 + Math.random() * 90000000),
+                email: 'test' + randomSuffix + '@quanmoc.vn',
+                mucLuong: 7000000,
+                hinhThucLamViec: 'toan_thoi_gian'
+            })
+        });
+        const jsonTaoNs = await resTaoNs.json();
+        inKetQua('Tạo nhân viên mới và cấp tài khoản thành công (HTTP 201)', resTaoNs.status === 201 && jsonTaoNs.ok === true);
+        const nsMoiId = jsonTaoNs.data.id;
+        const tenDangNhapMoi = jsonTaoNs.data.ten_dang_nhap;
+
+        // 10.4: Chỉnh sửa thông tin nhân sự
+        const resSuaNs = await fetch(`${BASE_URL}/api/tai-khoan/nhan-su/${nsMoiId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokenAdmin}`
+            },
+            body: JSON.stringify({
+                hoTen: 'Trần Văn Nhân Sự Mới (Đã Cập Nhật)',
+                soDienThoai: '0987654321',
+                mucLuong: 8500000
+            })
+        });
+        const jsonSuaNs = await resSuaNs.json();
+        inKetQua('Chỉnh sửa thông tin nhân viên thành công', jsonSuaNs.ok === true && jsonSuaNs.data.ho_ten.includes('Đã Cập Nhật'));
+
+        // 10.5: Đình chỉ / Tạm khóa nhân viên
+        const resDinhChi = await fetch(`${BASE_URL}/api/tai-khoan/nhan-su/${nsMoiId}/trang-thai`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokenAdmin}`
+            },
+            body: JSON.stringify({ trangThai: 'tam_khoa' })
+        });
+        const jsonDinhChi = await resDinhChi.json();
+        inKetQua('Đình chỉ công tác nhân viên thành công', jsonDinhChi.ok === true && jsonDinhChi.data.trang_thai_tk === 'tam_khoa');
+
+        // 10.6: Xác nhận tài khoản bị đình chỉ KHÔNG THỂ ĐĂNG NHẬP (HTTP 403)
+        const resLoginDinhChi = await fetch(`${BASE_URL}/api/tai-khoan/dang-nhap`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tenDangNhap: tenDangNhapMoi, matKhau: '123456' })
+        });
+        inKetQua('Tài khoản bị đình chỉ bị từ chối đăng nhập (HTTP 403)', resLoginDinhChi.status === 403);
+
+        // 10.7: Mở khóa lại nhân viên
+        const resMoKhoa = await fetch(`${BASE_URL}/api/tai-khoan/nhan-su/${nsMoiId}/trang-thai`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${tokenAdmin}`
+            },
+            body: JSON.stringify({ trangThai: 'dang_lam' })
+        });
+        const jsonMoKhoa = await resMoKhoa.json();
+        inKetQua('Mở khóa kích hoạt lại nhân viên thành công', jsonMoKhoa.ok === true && jsonMoKhoa.data.trang_thai === 'dang_lam');
+
+        // 10.8: Xóa vĩnh viễn nhân viên khỏi hệ thống
+        const resXoaNs = await fetch(`${BASE_URL}/api/tai-khoan/nhan-su/${nsMoiId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${tokenAdmin}` }
+        });
+        const jsonXoaNs = await resXoaNs.json();
+        inKetQua('Xóa vĩnh viễn nhân viên thành công', resXoaNs.status === 200 && jsonXoaNs.ok === true);
 
         console.log('\n================================================================');
         console.log('🎉 TẤT CẢ CÁC BÀI KIỂM THỬ BACKEND ĐỀU ĐÃ ĐẠT 100%! (ALL PASSED)');

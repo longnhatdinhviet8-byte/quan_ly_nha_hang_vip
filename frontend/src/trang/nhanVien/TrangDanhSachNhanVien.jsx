@@ -1,59 +1,177 @@
 // ============================================================================
 // DỰ ÁN: HỆ THỐNG QUẢN LÝ NHÀ HÀNG & GỌI MÓN QR TẠI BÀN (QUÁN MỘC POS & E-MENU)
-// A02 · DANH SÁCH NHÂN VIÊN (1440x1000) - CHUẨN THIẾT KẾ FIGMA
+// A02 · QUẢN TRỊ NHÂN SỰ & PHÂN QUYỀN (1440x1000) - CHUẨN THIẾT KẾ FIGMA
 // ============================================================================
 
-import React, { useState } from 'react';
-import { Users, UserPlus, Shield, Eye, Settings, Search, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Users, UserPlus, Shield, Eye, Settings, Search, CheckCircle2, 
+  Pencil, Ban, UserCheck, Trash2, AlertCircle, RefreshCw 
+} from 'lucide-react';
 import ModalHoSoNhanVien from './ModalHoSoNhanVien';
 import ModalPhanQuyenGiaoBan from './ModalPhanQuyenGiaoBan';
 import ModalCapTaiKhoan from './ModalCapTaiKhoan';
+import ModalChinhSuaNhanVien from './ModalChinhSuaNhanVien';
 import { DANH_SACH_NHAN_SU as DANH_SACH_NHAN_SU_MAU } from '../../dungChung/duLieuMau';
+import { api } from '../../dungChung/api';
 
 export default function TrangDanhSachNhanVien() {
   const [danhSach, setDanhSach] = useState(DANH_SACH_NHAN_SU_MAU);
+  const [dangTai, setDangTai] = useState(false);
   const [tuKhoa, setTuKhoa] = useState('');
+  const [thongBao, setThongBao] = useState(null);
+
+  // Modals state
   const [nhanVienXem, setNhanVienXem] = useState(null);
+  const [nhanVienSua, setNhanVienSua] = useState(null);
   const [nhanVienPhanQuyen, setNhanVienPhanQuyen] = useState(null);
   const [hienCapTk, setHienCapTk] = useState(false);
 
-  const nhanSuLoc = danhSach.filter(nv =>
-    !tuKhoa || nv.ho_ten.toLowerCase().includes(tuKhoa.toLowerCase()) || nv.ten_dang_nhap.toLowerCase().includes(tuKhoa.toLowerCase())
-  );
-
-  const mauVaiTro = {
-    quan_ly: 'bg-purple-100 text-purple-800',
-    thu_ngan: 'bg-blue-100 text-blue-800',
-    bep: 'bg-amber-100 text-amber-800',
-    phuc_vu: 'bg-emerald-100 text-[#226b4c]'
+  // Tải danh sách nhân sự thực tế từ máy chủ Backend
+  const taiDanhSach = async () => {
+    setDangTai(true);
+    try {
+      const res = await api.get('/api/tai-khoan/nhan-su');
+      if (Array.isArray(res) && res.length > 0) {
+        setDanhSach(res);
+      }
+    } catch (err) {
+      console.warn('Không thể tải nhân sự từ backend, sử dụng danh sách lưu trữ:', err.message);
+    } finally {
+      setDangTai(false);
+    }
   };
 
-  const handleTaoTk = (thongTin) => {
-    const nvMoi = {
-      id: Date.now(),
-      ma_nv: `NV-00${danhSach.length + 1}`,
-      ho_ten: thongTin.hoTen,
-      ten_dang_nhap: thongTin.tenDangNhap,
-      vai_tro: thongTin.vaiTro,
-      vai_tro_ten: thongTin.vaiTro === 'quan_ly' ? 'Quản Lý' : thongTin.vaiTro === 'thu_ngan' ? 'Thu Ngân' : thongTin.vaiTro === 'bep' ? 'Đầu Bếp' : 'Nhân Viên Phục Vụ',
-      so_dien_thoai: thongTin.soDienThoai,
-      khu_vuc_phu_trach: 'Tầng 1 · Bàn 01–12',
-      trang_thai: 'dang_lam_viec',
-      ngay_vao_lam: new Date().toLocaleDateString('vi-VN')
-    };
-    setDanhSach(prev => [nvMoi, ...prev]);
+  useEffect(() => {
+    taiDanhSach();
+  }, []);
+
+  const showToast = (noiDung, loai = 'thanhCong') => {
+    setThongBao({ noiDung, loai });
+    setTimeout(() => setThongBao(null), 4000);
+  };
+
+  // 1. Tạo nhân viên mới & cấp tài khoản
+  const handleTaoTk = async (thongTin) => {
+    try {
+      const nvMoi = await api.post('/api/tai-khoan/nhan-su', {
+        hoTen: thongTin.hoTen,
+        tenDangNhap: thongTin.tenDangNhap,
+        matKhau: thongTin.matKhau,
+        vaiTro: thongTin.vaiTro,
+        soDienThoai: thongTin.soDienThoai
+      });
+
+      setDanhSach(prev => [nvMoi, ...prev.filter(item => item.id !== nvMoi.id)]);
+      showToast(`Đã tạo thành công nhân viên "${thongTin.hoTen}" và cấp tài khoản ${thongTin.tenDangNhap}!`);
+    } catch (err) {
+      // Fallback local nếu offline
+      const nvMoi = {
+        id: Date.now(),
+        ma_nv: `NV-00${danhSach.length + 1}`,
+        ho_ten: thongTin.hoTen,
+        ten_dang_nhap: thongTin.tenDangNhap,
+        ma_vai_tro: thongTin.vaiTro,
+        ten_vai_tro: thongTin.vaiTro === 'quan_ly' ? 'Quản lý' : thongTin.vaiTro === 'thu_ngan' ? 'Thu ngân' : thongTin.vaiTro === 'bep' ? 'Đầu bếp' : 'Nhân viên Phục vụ',
+        so_dien_thoai: thongTin.soDienThoai,
+        trang_thai: 'dang_lam'
+      };
+      setDanhSach(prev => [nvMoi, ...prev]);
+      showToast(err.message || 'Đã ghi nhận nhân viên mới!');
+    }
+  };
+
+  // 2. Chỉnh sửa thông tin nhân sự
+  const handleCapNhat = async (id, duLieu) => {
+    const nvCapNhat = await api.put(`/api/tai-khoan/nhan-su/${id}`, duLieu);
+    setDanhSach(prev => prev.map(item => item.id === id ? { ...item, ...nvCapNhat } : item));
+    showToast(`Đã cập nhật thông tin nhân viên "${duLieu.hoTen}" thành công!`);
+  };
+
+  // 3. Đình chỉ / Kích hoạt lại nhân viên
+  const handleToggleDinhChi = async (nv) => {
+    const dangDinhChi = (nv.trang_thai === 'tam_nghi' || nv.trang_thai === 'tam_khoa');
+    const trangThaiMoi = dangDinhChi ? 'dang_lam' : 'tam_khoa';
+    const hanhDong = dangDinhChi ? 'MỞ LẠI HOẠT ĐỘNG' : 'ĐÌNH CHỈ / TẠM KHÓA';
+
+    if (!window.confirm(`Bạn có chắc chắn muốn ${hanhDong} nhân viên "${nv.ho_ten}" (${nv.ten_dang_nhap}) không?\n${!dangDinhChi ? 'Nhân viên này sẽ bị khóa tài khoản và không thể đăng nhập vào hệ thống.' : 'Tài khoản nhân viên sẽ được khôi phục quyền đăng nhập.'}`)) {
+      return;
+    }
+
+    try {
+      const res = await api.put(`/api/tai-khoan/nhan-su/${nv.id}/trang-thai`, { trangThai: trangThaiMoi });
+      setDanhSach(prev => prev.map(item => item.id === nv.id ? { ...item, trang_thai: res.trang_thai, trang_thai_tk: res.trang_thai_tk } : item));
+      showToast(`Đã ${hanhDong.toLowerCase()} nhân viên "${nv.ho_ten}" thành công!`);
+    } catch (err) {
+      alert(`Lỗi: ${err.message}`);
+    }
+  };
+
+  // 4. Xóa nhân viên khỏi hệ thống
+  const handleXoaNhanVien = async (nv) => {
+    if (!window.confirm(`⚠️ CẢNH BÁO XÓA NHÂN SỰ:\nBạn có chắc chắn muốn XÓA VĨNH VIỄN nhân viên "${nv.ho_ten}" (Tài khoản: ${nv.ten_dang_nhap})?\nThao tác này sẽ xóa hồ sơ và tài khoản nhân viên khỏi cơ sở dữ liệu.`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/api/tai-khoan/nhan-su/${nv.id}`);
+      setDanhSach(prev => prev.filter(item => item.id !== nv.id));
+      showToast(`Đã xóa vĩnh viễn nhân viên "${nv.ho_ten}" khỏi hệ thống!`);
+    } catch (err) {
+      alert(`Lỗi khi xóa nhân viên: ${err.message}`);
+    }
+  };
+
+  const nhanSuLoc = danhSach.filter(nv => {
+    const ten = nv.ho_ten ? nv.ho_ten.toLowerCase() : '';
+    const tk = nv.ten_dang_nhap ? nv.ten_dang_nhap.toLowerCase() : '';
+    const sdt = nv.so_dien_thoai || '';
+    const q = tuKhoa.toLowerCase();
+    return !tuKhoa || ten.includes(q) || tk.includes(q) || sdt.includes(q);
+  });
+
+  const mauVaiTro = {
+    quan_ly: 'bg-purple-100 text-purple-800 border-purple-200',
+    thu_ngan: 'bg-blue-100 text-blue-800 border-blue-200',
+    bep: 'bg-amber-100 text-amber-800 border-amber-200',
+    phuc_vu: 'bg-emerald-100 text-[#226b4c] border-emerald-200'
   };
 
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-6">
+      {/* Toast thông báo */}
+      {thongBao && (
+        <div className={`p-4 rounded-xl flex items-center justify-between text-xs font-bold shadow-md transition-all ${
+          thongBao.loai === 'thanhCong' ? 'bg-[#ebf4ed] text-[#226b4c] border border-[#226b4c]/30' : 'bg-rose-50 text-rose-800 border border-rose-200'
+        }`}>
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} />
+            <span>{thongBao.noiDung}</span>
+          </div>
+          <button onClick={() => setThongBao(null)} className="text-stone-400 hover:text-stone-700">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Tiêu đề & nút hành động */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-[#272d29] tracking-tight">
-            Quản trị nhân sự & phân quyền
-          </h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-black text-[#272d29] tracking-tight">
+              Quản trị nhân sự & phân quyền
+            </h1>
+            <button
+              onClick={taiDanhSach}
+              disabled={dangTai}
+              title="Tải lại dữ liệu"
+              className="p-1.5 rounded-lg hover:bg-stone-100 text-stone-500 hover:text-[#b64d2d] transition-colors"
+            >
+              <RefreshCw size={16} className={dangTai ? 'animate-spin text-[#b64d2d]' : ''} />
+            </button>
+          </div>
           <p className="text-xs text-[#72776f] mt-1">
-            Danh sách nhân sự toàn hệ thống, cấp tài khoản và giao bàn theo ca
+            Tổng cộng: <b>{danhSach.length} nhân sự</b> · Hỗ trợ thêm mới, chỉnh sửa thông tin, đình chỉ công tác và xóa tài khoản
           </p>
         </div>
 
@@ -64,7 +182,7 @@ export default function TrangDanhSachNhanVien() {
               type="text"
               value={tuKhoa}
               onChange={(e) => setTuKhoa(e.target.value)}
-              placeholder="Tìm tên nhân viên..."
+              placeholder="Tìm theo tên, tài khoản, SĐT..."
               className="w-full bg-white border border-stone-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-[#b64d2d]"
             />
           </div>
@@ -79,65 +197,140 @@ export default function TrangDanhSachNhanVien() {
         </div>
       </div>
 
-      {/* Bảng nhân sự */}
+      {/* Bảng danh sách nhân sự */}
       <div className="bg-white rounded-2xl shadow-sm border border-stone-200 overflow-hidden">
-        <table className="w-full text-left text-xs">
-          <thead className="bg-stone-50 border-b border-stone-200 font-bold text-[#72776f] uppercase">
-            <tr>
-              <th className="p-4">Mã NV</th>
-              <th className="p-4">Họ và tên</th>
-              <th className="p-4">Tài khoản</th>
-              <th className="p-4">Vai trò</th>
-              <th className="p-4">Khu vực phụ trách</th>
-              <th className="p-4">Số điện thoại</th>
-              <th className="p-4">Trạng thái</th>
-              <th className="p-4 text-center">Thao tác</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100">
-            {nhanSuLoc.map((nv) => (
-              <tr key={nv.id} className="hover:bg-stone-50/80 transition-colors">
-                <td className="p-4 font-mono font-bold text-[#b64d2d]">{nv.ma_nv}</td>
-                <td className="p-4 font-bold text-[#272d29]">{nv.ho_ten}</td>
-                <td className="p-4 font-mono text-stone-600">{nv.ten_dang_nhap}</td>
-                <td className="p-4">
-                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${mauVaiTro[nv.vai_tro] || 'bg-stone-100'}`}>
-                    {nv.vai_tro_ten || nv.vai_tro}
-                  </span>
-                </td>
-                <td className="p-4 text-[#2d4336] font-medium">{nv.khu_vuc_phu_trach}</td>
-                <td className="p-4 text-stone-600">{nv.so_dien_thoai}</td>
-                <td className="p-4">
-                  <span className="inline-flex items-center gap-1.5 text-xs text-[#226b4c] font-semibold">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#226b4c]"></span>
-                    Đang làm việc
-                  </span>
-                </td>
-                <td className="p-4 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      onClick={() => setNhanVienXem(nv)}
-                      className="p-1.5 hover:bg-stone-100 rounded text-stone-600 hover:text-[#272d29]"
-                      title="Xem hồ sơ (A03)"
-                    >
-                      <Eye size={16} />
-                    </button>
-                    <button
-                      onClick={() => setNhanVienPhanQuyen(nv)}
-                      className="p-1.5 hover:bg-stone-100 rounded text-stone-600 hover:text-[#b64d2d]"
-                      title="Phân quyền & giao bàn (A04)"
-                    >
-                      <Settings size={16} />
-                    </button>
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-stone-50 border-b border-stone-200 font-bold text-[#72776f] uppercase">
+              <tr>
+                <th className="p-4">Mã NV</th>
+                <th className="p-4">Họ và tên</th>
+                <th className="p-4">Tài khoản</th>
+                <th className="p-4">Vai trò (RBAC)</th>
+                <th className="p-4">Số điện thoại</th>
+                <th className="p-4">Hình thức</th>
+                <th className="p-4">Trạng thái</th>
+                <th className="p-4 text-center min-w-[180px]">Thao tác quản trị</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {nhanSuLoc.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="p-8 text-center text-stone-400">
+                    Không tìm thấy nhân viên nào phù hợp với từ khóa "{tuKhoa}"
+                  </td>
+                </tr>
+              ) : (
+                nhanSuLoc.map((nv) => {
+                  const maVaiTro = nv.ma_vai_tro || nv.vai_tro || 'phuc_vu';
+                  const tenVaiTro = nv.ten_vai_tro || nv.vai_tro_ten || (maVaiTro === 'quan_ly' ? 'Quản lý' : maVaiTro === 'thu_ngan' ? 'Thu ngân' : maVaiTro === 'bep' ? 'Đầu bếp' : 'Phục vụ');
+                  const dangDinhChi = (nv.trang_thai === 'tam_nghi' || nv.trang_thai === 'tam_khoa');
+
+                  return (
+                    <tr key={nv.id} className={`hover:bg-stone-50/80 transition-colors ${dangDinhChi ? 'bg-amber-50/30' : ''}`}>
+                      <td className="p-4 font-mono font-bold text-[#b64d2d]">
+                        NV-{String(nv.id).padStart(3, '0')}
+                      </td>
+                      <td className="p-4 font-bold text-[#272d29]">
+                        <div className="flex items-center gap-2">
+                          <span>{nv.ho_ten}</span>
+                          {maVaiTro === 'quan_ly' && (
+                            <span className="p-0.5 rounded bg-purple-100 text-purple-700" title="Quản trị viên">
+                              <Shield size={12} />
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 font-mono text-stone-600">{nv.ten_dang_nhap}</td>
+                      <td className="p-4">
+                        <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border ${mauVaiTro[maVaiTro] || 'bg-stone-100'}`}>
+                          {tenVaiTro}
+                        </span>
+                      </td>
+                      <td className="p-4 text-stone-600">{nv.so_dien_thoai || '—'}</td>
+                      <td className="p-4 text-stone-600 font-medium">
+                        {nv.hinh_thuc_lam_viec === 'ban_thoi_gian' ? 'Part-time' : 'Full-time'}
+                      </td>
+                      <td className="p-4">
+                        {dangDinhChi ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                            Đình chỉ / Tạm khóa
+                          </span>
+                        ) : nv.trang_thai === 'da_nghi' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-rose-600"></span>
+                            Đã nghỉ việc
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-[#226b4c] border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#226b4c]"></span>
+                            Đang làm việc
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* 1. Xem chi tiết hồ sơ */}
+                          <button
+                            onClick={() => setNhanVienXem(nv)}
+                            className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 hover:text-[#272d29] transition-colors"
+                            title="Xem chi tiết hồ sơ (A03)"
+                          >
+                            <Eye size={16} />
+                          </button>
+
+                          {/* 2. CHỈNH SỬA THÔNG TIN NHÂN SỰ */}
+                          <button
+                            onClick={() => setNhanVienSua(nv)}
+                            className="p-1.5 hover:bg-amber-50 rounded-lg text-amber-700 hover:text-amber-900 transition-colors"
+                            title="Chỉnh sửa thông tin nhân viên"
+                          >
+                            <Pencil size={16} />
+                          </button>
+
+                          {/* 3. ĐÌNH CHỈ / KÍCH HOẠT LẠI */}
+                          <button
+                            onClick={() => handleToggleDinhChi(nv)}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              dangDinhChi 
+                                ? 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100' 
+                                : 'hover:bg-amber-50 text-stone-500 hover:text-amber-800'
+                            }`}
+                            title={dangDinhChi ? "Kích hoạt lại nhân viên" : "Đình chỉ / Tạm khóa tài khoản"}
+                          >
+                            {dangDinhChi ? <UserCheck size={16} /> : <Ban size={16} />}
+                          </button>
+
+                          {/* 4. PHÂN QUYỀN & GIAO BÀN */}
+                          <button
+                            onClick={() => setNhanVienPhanQuyen(nv)}
+                            className="p-1.5 hover:bg-stone-100 rounded-lg text-stone-600 hover:text-[#b64d2d] transition-colors"
+                            title="Phân quyền & giao bàn (A04)"
+                          >
+                            <Settings size={16} />
+                          </button>
+
+                          {/* 5. XÓA NHÂN VIÊN */}
+                          <button
+                            onClick={() => handleXoaNhanVien(nv)}
+                            className="p-1.5 hover:bg-rose-50 rounded-lg text-stone-400 hover:text-rose-600 transition-colors"
+                            title="Xóa vĩnh viễn nhân viên"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      {/* Modal A03 */}
+      {/* Modal A03: Xem hồ sơ */}
       {nhanVienXem && (
         <ModalHoSoNhanVien
           nhanVien={nhanVienXem}
@@ -145,18 +338,27 @@ export default function TrangDanhSachNhanVien() {
         />
       )}
 
-      {/* Modal A04 */}
+      {/* Modal Chỉnh sửa thông tin nhân viên */}
+      {nhanVienSua && (
+        <ModalChinhSuaNhanVien
+          nhanVien={nhanVienSua}
+          onDong={() => setNhanVienSua(null)}
+          onCapNhat={handleCapNhat}
+        />
+      )}
+
+      {/* Modal A04: Phân quyền & giao bàn */}
       {nhanVienPhanQuyen && (
         <ModalPhanQuyenGiaoBan
           nhanVien={nhanVienPhanQuyen}
           onDong={() => setNhanVienPhanQuyen(null)}
           onLuuPhanQuyen={(data) => {
-            alert(`Đã cập nhật phân quyền và khu vực phụ trách cho ${nhanVienPhanQuyen.ho_ten}`);
+            showToast(`Đã cập nhật phân quyền và khu vực phụ trách cho ${nhanVienPhanQuyen.ho_ten}`);
           }}
         />
       )}
 
-      {/* Modal A05 */}
+      {/* Modal A05: Cấp tài khoản mới */}
       {hienCapTk && (
         <ModalCapTaiKhoan
           onDong={() => setHienCapTk(false)}
