@@ -18,10 +18,10 @@ router.put('/doi-mat-khau', xacThucNguoiDung, taiKhoanController.doiMatKhau);
 
 // Quản trị Nhân sự toàn hệ thống (Chỉ Quản lý - Figma A02, A03, A04, A05)
 router.get('/nhan-su', xacThucNguoiDung, phanQuyen('quan_ly'), taiKhoanController.layDanhSachNhanSu);
-router.get('/nhan-su/:id', xacThucNguoiDung, phanQuyen('quan_ly'), taiKhoanController.layChiTietNhanSu);
 router.post('/nhan-su', xacThucNguoiDung, phanQuyen('quan_ly'), taiKhoanController.taoNhanSu);
-router.put('/nhan-su/:id', xacThucNguoiDung, phanQuyen('quan_ly'), taiKhoanController.capNhatNhanSu);
 router.put('/nhan-su/:id/trang-thai', xacThucNguoiDung, phanQuyen('quan_ly'), taiKhoanController.doiTrangThaiNhanSu);
+router.get('/nhan-su/:id', xacThucNguoiDung, phanQuyen('quan_ly'), taiKhoanController.layChiTietNhanSu);
+router.put('/nhan-su/:id', xacThucNguoiDung, phanQuyen('quan_ly'), taiKhoanController.capNhatNhanSu);
 router.delete('/nhan-su/:id', xacThucNguoiDung, phanQuyen('quan_ly'), taiKhoanController.xoaNhanSu);
 
 module.exports = router;
