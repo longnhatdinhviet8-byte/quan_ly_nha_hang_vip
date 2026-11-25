@@ -231,7 +231,8 @@ const taiKhoanModel = {
         return chayGiaoDich(() => {
             const ketQua = thucThi(`
                 UPDATE nhan_vien SET trang_thai = 'dang_lam', ngay_luu_tru = NULL,
-                    ngay_cap_nhat = CURRENT_TIMESTAMP WHERE id = ? AND ngay_luu_tru IS NOT NULL
+                    ngay_cap_nhat = CURRENT_TIMESTAMP
+                WHERE id = ? AND (ngay_luu_tru IS NOT NULL OR trang_thai = 'da_nghi')
             `, [id]);
             if (!ketQua.changes) return null;
             thucThi(`

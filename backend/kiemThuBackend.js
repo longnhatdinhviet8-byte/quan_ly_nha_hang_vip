@@ -779,13 +779,25 @@ async function chayKiemThu() {
         const jsonMoKhoa = await resMoKhoa.json();
         inKetQua('Mở khóa kích hoạt lại nhân viên thành công', jsonMoKhoa.ok === true && jsonMoKhoa.data.trang_thai === 'dang_lam');
 
-        // 10.8: Xóa vĩnh viễn nhân viên khỏi hệ thống
+        const urlNhanSu = `${BASE_URL}/api/tai-khoan/nhan-su/${nsMoiId}`;
+        const resNghiViec = await fetch(`${urlNhanSu}/trang-thai`, {
+            method: 'PUT', headers: headersQuanLy, body: JSON.stringify({ trangThai: 'da_nghi' })
+        });
+        const daNghi = (await resNghiViec.json()).data;
+        inKetQua('Hồ sơ nghỉ việc có thể chưa có ngày lưu trữ', resNghiViec.ok &&
+            daNghi?.trang_thai === 'da_nghi' && !daNghi.ngay_luu_tru);
+        const resKhoiPhuc = await fetch(`${urlNhanSu}/khoi-phuc`, { method: 'PUT', headers: headersQuanLy });
+        const khoiPhuc = (await resKhoiPhuc.json()).data;
+        inKetQua('Khôi phục nhân viên nghỉ việc và mở lại tài khoản', resKhoiPhuc.ok &&
+            khoiPhuc?.trang_thai === 'dang_lam' && khoiPhuc.trang_thai_tk === 'hoat_dong');
+
+        // 10.8: Lưu trữ hồ sơ nhân viên
         const resXoaNs = await fetch(`${BASE_URL}/api/tai-khoan/nhan-su/${nsMoiId}`, {
             method: 'DELETE',
             headers: { 'Authorization': `Bearer ${tokenAdmin}` }
         });
         const jsonXoaNs = await resXoaNs.json();
-        inKetQua('Xóa vĩnh viễn nhân viên thành công', resXoaNs.status === 200 && jsonXoaNs.ok === true);
+        inKetQua('Lưu trữ nhân viên thành công', resXoaNs.status === 200 && jsonXoaNs.ok === true);
 
         // =====================================================================
         // NHÓM 11: QUẢN LÝ THỰC ĐƠN, CÀI ĐẶT SỐ SUẤT & TỰ ĐỘNG TRỪ KHI GỌI MÓN (A12)

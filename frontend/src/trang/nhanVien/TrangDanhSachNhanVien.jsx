@@ -172,7 +172,8 @@ export default function TrangDanhSachNhanVien() {
     }
   });
 
-  const danhSachTheoTab = danhSach.filter(nv => Boolean(nv.ngay_luu_tru) === xemLuuTru);
+  const danhSachTheoTab = danhSach.filter(nv =>
+    (Boolean(nv.ngay_luu_tru) || nv.trang_thai === 'da_nghi') === xemLuuTru);
   const nhanSuLoc = danhSachTheoTab.filter(nv => {
     const ten = nv.ho_ten ? nv.ho_ten.toLowerCase() : '';
     const tk = nv.ten_dang_nhap ? nv.ten_dang_nhap.toLowerCase() : '';
