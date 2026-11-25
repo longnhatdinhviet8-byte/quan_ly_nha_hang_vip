@@ -304,16 +304,30 @@ async function kiemThuThamGiaBan({ baseUrl, db, headersQuanLy, headersThuNgan, h
         await request('/dieu-phoi-bep/chi-tiet/' + chiTietDatHo + '/trang-thai',
             trangThaiMoi === 'da_phuc_vu' ? headersQuanLy : headersBep, 'PUT', { trangThaiMoi });
     }
+    const hdTruocHuy = await request('/hoa-don/tao-hoa-don', headersThuNgan, 'POST', { banId: ban.id }, 201);
+    await request('/hoa-don/' + hdTruocHuy.id + '/thu-mot-phan', headersThuNgan, 'POST',
+        { soTien: hdTruocHuy.tong_tien_thanh_toan, phuongThuc: 'tien_mat', maYeuCau: randomUUID() });
     const yeuCau = await request('/don-goi-mon/huy-mon', headersThuNgan, 'POST',
         { chiTietDonMonId: chiTietDatHo, lyDoHuy: 'Khách xin hủy món cuối' });
     await request('/don-goi-mon/yeu-cau-huy-mon/' + yeuCau.yeuCauId + '/phe-duyet', headersQuanLy, 'PUT', { chapNhan: true });
     const billRong = await request('/hoa-don/tam-tinh/' + ban.id, headersThuNgan);
     assert.equal(billRong.coTheChotBillRong, true);
+    assert.equal(billRong.canHoan, hdTruocHuy.tong_tien_thanh_toan);
     const hdRong = await request('/hoa-don/tao-hoa-don', headersThuNgan, 'POST', { banId: ban.id }, 201);
     assert.equal(hdRong.tong_tien_thanh_toan, 0);
-    const chotRong = await request('/hoa-don/' + hdRong.id + '/thanh-toan', headersThuNgan, 'POST',
-        { tienKhachDua: 0, soTienDuKien: 0 });
-    assert.deepEqual(chotRong.cacDotThu, []);
+    const urlChotRong = '/hoa-don/' + hdRong.id + '/thanh-toan';
+    await request(urlChotRong, headersThuNgan, 'POST', { tienKhachDua: 0, soTienDuKien: 0 }, 409);
+    const hoanTien = { soTien: billRong.canHoan, phuongThuc: 'vietqr', maChuyenKhoan: randomUUID() };
+    await request(urlChotRong, headersThuNgan, 'POST', { hoanTien: { ...hoanTien, soTien: hoanTien.soTien - 1 } }, 409);
+    await request(urlChotRong, headersThuNgan, 'POST', { hoanTien: { ...hoanTien, maChuyenKhoan: '' } }, 409);
+    assert.equal(db.prepare('SELECT trang_thai FROM phien_ban WHERE id=?').get(aMoi.phienId).trang_thai, 'dang_hoat_dong');
+    const chotRong = await request(urlChotRong, headersThuNgan, 'POST', { tienKhachDua: 0, soTienDuKien: 0, hoanTien });
+    await request(urlChotRong, headersThuNgan, 'POST', { hoanTien }, 400);
+    assert.equal(chotRong.cacDotThu.length, 1);
+    assert.equal(chotRong.khoanHoan.so_tien, billRong.canHoan);
+    const hdInLai = await request('/hoa-don/' + hdRong.id, headersThuNgan);
+    assert.equal(hdInLai.khoanHoan.ma_chuyen_khoan, hoanTien.maChuyenKhoan);
+    assert.equal(hdInLai.canHoan, 0);
     assert.equal(db.prepare('SELECT trang_thai FROM ban_an WHERE id=?').get(ban.id).trang_thai, 'can_don_dep');
     log('POS', 'duyệt hủy món cuối đã bưng vẫn chốt bill 0đ và chuyển bàn sang cần dọn');
     log('TC-18–20', 'đóng phiên thu hồi quyền, bill đúng thiết bị và luồng nhân viên đặt hộ vẫn hoạt động');

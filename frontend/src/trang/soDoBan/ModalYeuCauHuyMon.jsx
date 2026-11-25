@@ -24,18 +24,20 @@ export default function ModalYeuCauHuyMon({
     'Khách đổi ý trước khi chế biến',
     'Món chờ quá lâu khách muốn hủy',
     'Nhân viên ghi nhận nhầm bàn / nhầm món',
-    'Bếp báo hết nguyên liệu tươi'
+    'Bếp báo hết nguyên liệu tươi',
+    'Khác'
   ];
 
   const monChon = danhSachMon.find(m => m.id === monChonId) || danhSachMon[0];
+  const lyDoHuy = lyDo === 'Khác' ? ghiChu.trim() : lyDo;
 
   const handleGui = () => {
+    if (!lyDoHuy) return;
     onGuiYeuCauHuy({
       banMa: ban.ma_ban,
       monId: monChonId,
       tenMon: monChon?.ten_mon,
-      lyDo,
-      ghiChu
+      lyDo: lyDoHuy
     });
   };
 
@@ -121,6 +123,21 @@ export default function ModalYeuCauHuyMon({
           </div>
         </div>
 
+        {lyDo === 'Khác' && (
+          <label className="mb-3 block space-y-1 text-xs font-bold text-[#272d29]">
+            <span>Lý do hủy khác *</span>
+            <textarea
+              value={ghiChu}
+              onChange={(event) => setGhiChu(event.target.value)}
+              maxLength={300}
+              required
+              rows={3}
+              className="block w-full rounded-lg border border-stone-300 p-2 font-normal"
+              placeholder="Nhập lý do hủy món"
+            />
+          </label>
+        )}
+
         {/* Cảnh báo kiểm toán */}
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs flex items-start gap-2">
           <ShieldCheck size={16} className="text-[#795c21] shrink-0 mt-0.5" />
@@ -132,7 +149,8 @@ export default function ModalYeuCauHuyMon({
         {/* Nút gửi */}
         <button
           onClick={handleGui}
-          className="w-full py-3.5 bg-[#a42c35] hover:bg-[#8e242c] text-white rounded-xl font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+          disabled={!lyDoHuy}
+          className="w-full py-3.5 bg-[#a42c35] hover:bg-[#8e242c] text-white rounded-xl font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
         >
           <Send size={16} />
           <span>Gửi yêu cầu hủy món tới Quản lý</span>

@@ -6,6 +6,10 @@
 const { truyVanNhieu, truyVanMot, thucThi, chayGiaoDich } = require('../../cauHinh/ketNoiCoSoDuLieu');
 
 const hoaDonModel = {
+    layKhoanHoan(hoaDonId) {
+        return truyVanMot('SELECT * FROM giao_dich_hoan_tien WHERE hoa_don_id=?', [hoaDonId]) ?? null;
+    },
+
     layCacDotThu(phienId) {
         return truyVanNhieu(`SELECT g.id,g.so_tien,g.phuong_thuc,g.thoi_gian_tao,
             p.giao_dich_id IS NOT NULL AS mot_phan

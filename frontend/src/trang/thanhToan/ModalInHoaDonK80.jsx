@@ -13,6 +13,8 @@ export default function ModalInHoaDonK80({ ban, hoaDon = {}, phieuThu, onDong })
     ma_hoa_don: maHoaDon, ten_thu_ngan: thuNgan,
     tien_khach_dua: tienKhachDua, tien_thoi_lai: tienThoiLai } = hoaDon;
   const cacDotThu = hoaDon.cacDotThu ?? [];
+  const tongDaThu = cacDotThu.reduce((tong, dot) => tong + dot.so_tien, 0);
+  const khoanHoan = hoaDon.khoanHoan;
   const tienThuCuoi = tongCong - cacDotThu.filter(dot => dot.mot_phan).reduce((tong, dot) => tong + dot.so_tien, 0);
   const daGhiNhanTienNhan = tienKhachDua != null && tienKhachDua >= tienThuCuoi;
   const dinhDangPhuongThuc = ma => ({ VIETQR: 'VietQR', TIEN_MAT: 'Tiền mặt', THE_POS: 'Thẻ POS' })[ma] || ma;
@@ -114,6 +116,13 @@ export default function ModalInHoaDonK80({ ban, hoaDon = {}, phieuThu, onDong })
                     <span>{dinhDangTien(dot.so_tien)}</span>
                   </div>)}
                 </div>}
+                {khoanHoan ? <dl className="space-y-1 border-t border-dashed pt-2">
+                  <div className="flex justify-between"><dt>Đã thu</dt><dd>{dinhDangTien(tongDaThu)}</dd></div>
+                  <div className="flex justify-between"><dt>Đã hoàn · {dinhDangPhuongThuc(khoanHoan.phuong_thuc)}</dt>
+                    <dd>{dinhDangTien(khoanHoan.so_tien)}</dd></div>
+                  {khoanHoan.ma_chuyen_khoan && <div className="break-all">Mã hoàn: {khoanHoan.ma_chuyen_khoan}</div>}
+                  <div className="flex justify-between font-bold"><dt>Thực thu</dt><dd>{dinhDangTien(tongDaThu - khoanHoan.so_tien)}</dd></div>
+                </dl> : <>
                 <div className="flex justify-between">
                   <span>{cacDotThu.some(dot => dot.mot_phan) ? 'Tiền nhận khi chốt bàn:' : 'Tiền nhận từ khách:'}</span>
                   <span>{daGhiNhanTienNhan ? dinhDangTien(tienKhachDua) : 'Chưa ghi nhận'}</span>
@@ -122,6 +131,7 @@ export default function ModalInHoaDonK80({ ban, hoaDon = {}, phieuThu, onDong })
                   <span>Tiền thối lại:</span>
                   <span>{daGhiNhanTienNhan && tienThoiLai != null ? dinhDangTien(tienThoiLai) : 'Chưa ghi nhận'}</span>
                 </div>
+                </>}
               </>
             )}
           </div>

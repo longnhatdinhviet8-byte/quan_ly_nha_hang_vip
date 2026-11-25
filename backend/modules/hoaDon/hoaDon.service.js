@@ -130,13 +130,17 @@ const hoaDonService = {
         const chiaTien = hoaDonModel.layChiaTienNhom(hoaDonId);
         const cacDotThu = hoaDonModel.layCacDotThu(hoaDon.phien_ban_id);
         const daThu = soDaThu(cacDotThu);
-        const conPhaiThu = Math.max(0, hoaDon.tong_tien_thanh_toan - daThu);
+        const khoanHoan = hoaDonModel.layKhoanHoan(hoaDonId);
+        const thucThu = daThu - (khoanHoan?.so_tien ?? 0);
+        const conPhaiThu = Math.max(0, hoaDon.tong_tien_thanh_toan - thucThu);
+        const canHoan = hoaDon.trang_thai === 'chua_thanh_toan'
+            ? Math.max(0, thucThu - hoaDon.tong_tien_thanh_toan) : 0;
 
         return {
             ...hoaDon,
             danhSachMon,
             chiaTien,
-            cacDotThu, daThu, conPhaiThu,
+            cacDotThu, daThu, conPhaiThu, canHoan, khoanHoan,
             vietQr: conPhaiThu > 0 && hoaDon.trang_thai === 'chua_thanh_toan' && !hoaDonModel.lyDoChanThu(hoaDon.phien_ban_id)
                 && !xuLyMonPos.lyDoChanDong(hoaDon.phien_ban_id)
                 ? taoVietQr(conPhaiThu, `MOC HD ${hoaDon.ma_hoa_don}`) : null
@@ -178,14 +182,14 @@ const hoaDonService = {
             phienBanId: phienBan.id,
             danhSachMon,
             ...(xemXuLyMon ? { chiTietXuLyMon, lyDoChanDong,
-                coTheChotBillRong: !danhSachMon.length && daThu === 0 && coMonDaHuy(chiTietXuLyMon) } : {}),
+                coTheChotBillRong: !danhSachMon.length && coMonDaHuy(chiTietXuLyMon) } : {}),
             tongTienMon,
             phanTramChietKhau,
             tienChietKhau,
             phanTramVat,
             tienVat,
             tongTienThanhToan,
-            daThu, conPhaiThu,
+            daThu, conPhaiThu, canHoan: Math.max(0, daThu - tongTienThanhToan),
             lyDoChanThu,
             vietQr: lyDoChanThu || lyDoChanDong || !conPhaiThu ? null : taoVietQr(conPhaiThu, `MOC BAN ${ban.ma_ban}`)
         };
@@ -263,6 +267,7 @@ const hoaDonService = {
         thuNganId = null,
         caLamViecId = null,
         soTienDuKien,
+        hoanTien,
         ghiChu = null
     } = {}, taiKhoanHienTai = null) {
         const hoaDon = hoaDonModel.timTheoId(hoaDonId);
@@ -278,8 +283,16 @@ const hoaDonService = {
             throw new Error('Phương thức thanh toán không được hỗ trợ');
         }
         const daThu = soDaThu(hoaDonModel.layCacDotThu(hoaDon.phien_ban_id));
-        const tongPhaiTra = hoaDon.tong_tien_thanh_toan - daThu;
-        if (tongPhaiTra < 0) throw loiThanhToan('Số tiền đã thu vượt tổng bill. Cần quản lý đối soát trước khi đóng bàn.');
+        const chenhlech = hoaDon.tong_tien_thanh_toan - daThu;
+        const tongPhaiTra = Math.max(0, chenhlech);
+        const canHoan = Math.max(0, -chenhlech);
+        const maHoan = typeof hoanTien?.maChuyenKhoan === 'string' ? hoanTien.maChuyenKhoan.trim() : '';
+        if (canHoan && (!hoanTien || hoanTien.soTien !== canHoan ||
+            !['tien_mat', 'vietqr'].includes(hoanTien.phuongThuc) || maHoan.length > 120 ||
+            (hoanTien.phuongThuc === 'vietqr' && !maHoan))) {
+            throw loiThanhToan(`Cần xác nhận đã hoàn đúng ${canHoan.toLocaleString('vi-VN')}đ. Hoàn qua chuyển khoản cần mã giao dịch.`);
+        }
+        if (!canHoan && hoanTien != null) throw loiThanhToan('Bill không còn khoản cần hoàn. Hãy mở lại thanh toán.');
         if (soTienDuKien !== undefined && soTienDuKien !== tongPhaiTra)
             throw loiThanhToan('Số tiền còn phải thu đã thay đổi. Hãy mở lại thanh toán.');
         let tienThucDua = Number(tienKhachDua);
@@ -336,6 +349,20 @@ const hoaDonService = {
             );
 
             if (!capNhat.changes) throw new Error('Hóa đơn đã được xử lý');
+
+            if (canHoan) {
+                const laChuyenKhoan = hoanTien.phuongThuc === 'vietqr';
+                if (laChuyenKhoan && db.prepare('SELECT 1 FROM giao_dich_hoan_tien WHERE ma_chuyen_khoan=?').get(maHoan))
+                    throw loiThanhToan('Mã giao dịch hoàn tiền đã được ghi nhận.');
+                db.prepare(`INSERT INTO giao_dich_hoan_tien (hoa_don_id,so_tien,phuong_thuc,ma_chuyen_khoan,tai_khoan_id)
+                    VALUES (?, ?, ?, ?, ?)`).run(hoaDonId, canHoan, laChuyenKhoan ? 'VIETQR' : 'TIEN_MAT',
+                    laChuyenKhoan ? maHoan : null, taiKhoanHienTai?.id ?? null);
+                db.prepare(`INSERT INTO nhat_ky_kiem_toan
+                    (tai_khoan_id,hanh_dong,bang_anh_huong,ban_ghi_id,du_lieu_moi,ly_do)
+                    VALUES (?,'HOAN_TIEN_CHOT_BAN','hoa_don',?,?,?)`).run(taiKhoanHienTai?.id ?? null, hoaDonId,
+                    JSON.stringify({ soTien: canHoan, phuongThuc: hoanTien.phuongThuc, maChuyenKhoan: laChuyenKhoan ? maHoan : null }),
+                    'Hoàn chênh lệch sau khi điều chỉnh hóa đơn');
+            }
 
             // 2. Đóng phiên bàn ăn
             const dongPhien = db.prepare(`
@@ -403,7 +430,7 @@ const hoaDonService = {
             phuongThucThanhToan,
             tienThoiLai
         });
-        if (coMonChuaXacNhanBung) socketPhat.nhatKyThayDoi();
+        if (coMonChuaXacNhanBung || canHoan) socketPhat.nhatKyThayDoi();
 
         // Báo trạng thái bàn mới
         socketPhat.trangThaiBan({
@@ -432,6 +459,7 @@ const hoaDonService = {
             maHoaDon: hoaDon.ma_hoa_don,
             tongTienThanhToan: hoaDon.tong_tien_thanh_toan,
             cacDotThu: hoaDonModel.layCacDotThu(hoaDon.phien_ban_id),
+            khoanHoan: hoaDonModel.layKhoanHoan(hoaDonId),
             tienKhachDua: tienThucDua,
             tienThoiLai,
             phuongThucThanhToan,

@@ -352,6 +352,17 @@ CREATE TABLE IF NOT EXISTS phieu_thu_mot_phan (
     ten_ban TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS giao_dich_hoan_tien (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    hoa_don_id INTEGER NOT NULL UNIQUE REFERENCES hoa_don(id),
+    so_tien INTEGER NOT NULL CHECK (so_tien > 0),
+    phuong_thuc TEXT NOT NULL CHECK (phuong_thuc IN ('TIEN_MAT', 'VIETQR')),
+    ma_chuyen_khoan TEXT COLLATE NOCASE UNIQUE,
+    tai_khoan_id INTEGER REFERENCES tai_khoan(id),
+    thoi_gian_tao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (phuong_thuc != 'VIETQR' OR LENGTH(TRIM(COALESCE(ma_chuyen_khoan, ''))) > 0)
+);
+
 -- 24. Bảng phieu_thu_chi_noi_bo (Két tiền & Chốt ca Z-Report)
 CREATE TABLE IF NOT EXISTS phieu_thu_chi_noi_bo (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

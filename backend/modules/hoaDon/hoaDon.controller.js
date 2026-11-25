@@ -73,6 +73,7 @@ const hoaDonController = {
                 maGiaoDichNganHang,
                 caLamViecId,
                 soTienDuKien,
+                hoanTien,
                 ghiChu
             } = req.body;
 
@@ -87,6 +88,7 @@ const hoaDonController = {
                     thuNganId,
                     caLamViecId,
                     soTienDuKien,
+                    hoanTien,
                     ghiChu
                 },
                 req.nguoiDung

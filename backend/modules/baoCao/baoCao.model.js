@@ -307,6 +307,8 @@ const baoCaoModel = {
                 SELECT so_tien, phuong_thuc, thoi_gian_tao AS thoi_gian_thu
                 FROM giao_dich_thanh_toan WHERE trang_thai='thanh_cong'
                 UNION ALL
+                SELECT -so_tien, phuong_thuc, thoi_gian_tao FROM giao_dich_hoan_tien
+                UNION ALL
                 SELECT hd.tong_tien_thanh_toan, UPPER(hd.phuong_thuc_thanh_toan),
                     COALESCE(hd.thoi_gian_thanh_toan, hd.ngay_tao)
                 FROM hoa_don hd WHERE hd.trang_thai='da_thanh_toan'

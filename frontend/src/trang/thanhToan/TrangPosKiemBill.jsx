@@ -21,6 +21,7 @@ import ModalGiamGiaChietKhau from './ModalGiamGiaChietKhau';
 import ModalThanhToanTienMat from './ModalThanhToanTienMat';
 import ModalThanhToanVietQrPos from './ModalThanhToanVietQrPos';
 import ModalThuMotPhan from './ModalThuMotPhan';
+import ModalHoanTienChotBan from './ModalHoanTienChotBan';
 import ModalChiaDeuHoaDon from './ModalChiaDeuHoaDon';
 import ModalInHoaDonK80 from './ModalInHoaDonK80';
 import ModalHoanTatDonBan from './ModalHoanTatDonBan';
@@ -163,6 +164,10 @@ export default function TrangPosKiemBill({ nhanVien, onDangXuat, onMoCaLamViec }
     setBanDaThuTien(null);
     setHoaDon(hd);
     if (motPhan) setBuocThanhToan('nhap_mot_phan');
+    else if (hd.canHoan > 0) {
+      setBuocThanhToan('hoan_tien');
+      return;
+    }
     else if (phuongThuc === 'vietqr' && hd.conPhaiThu > 0) {
       if (!hd.vietQr) throw new Error('Chưa có mã VietQR cho hóa đơn này. Hãy kiểm tra lại cấu hình hoặc chọn Tiền mặt.');
       setHienVietQr(true);
@@ -170,9 +175,9 @@ export default function TrangPosKiemBill({ nhanVien, onDangXuat, onMoCaLamViec }
     if (!motPhan) setBuocThanhToan('');
   });
 
-  const xacNhanThanhToan = (phuongThucThanhToan, tienKhachDua) => luu(async () => {
+  const xacNhanThanhToan = (phuongThucThanhToan, tienKhachDua, hoanTien) => luu(async () => {
     const ketQua = await api.post(`/api/hoa-don/${hoaDon.id}/thanh-toan`, {
-      phuongThucThanhToan, tienKhachDua, soTienDuKien: hoaDon.conPhaiThu
+      phuongThucThanhToan, tienKhachDua, soTienDuKien: hoaDon.conPhaiThu, hoanTien
     });
     if (ketQua?.trangThai !== 'da_thanh_toan' || ketQua.hoaDonId !== hoaDon.id) {
       throw new Error('Chưa nhận được xác nhận thanh toán cho hóa đơn này.');
@@ -183,12 +188,14 @@ export default function TrangPosKiemBill({ nhanVien, onDangXuat, onMoCaLamViec }
       phuong_thuc_thanh_toan: ketQua.phuongThucThanhToan,
       tien_khach_dua: ketQua.tienKhachDua,
       tien_thoi_lai: ketQua.tienThoiLai,
-      cacDotThu: ketQua.cacDotThu
+      cacDotThu: ketQua.cacDotThu,
+      khoanHoan: ketQua.khoanHoan
     }));
     setBanDaThuTien(banDangChon);
     setHoaDon(daThu);
     setHienVietQr(false);
     setHienTienMat(false);
+    setBuocThanhToan('');
     setHienInK80(true);
   });
 
@@ -387,7 +394,10 @@ export default function TrangPosKiemBill({ nhanVien, onDangXuat, onMoCaLamViec }
                 </div>
                 {billHienTai?.daThu > 0 && <div className="space-y-1">
                   <div className="flex justify-between"><span>Đã thanh toán</span><strong>{dinhDangTien(billHienTai.daThu)}</strong></div>
-                  <div className="flex justify-between"><span>Còn phải thu</span><strong>{dinhDangTien(billHienTai.conPhaiThu)}</strong></div>
+                  <div className="flex justify-between">
+                    <span>{billHienTai.canHoan > 0 ? 'Cần hoàn' : 'Còn phải thu'}</span>
+                    <strong>{dinhDangTien(billHienTai.canHoan || billHienTai.conPhaiThu)}</strong>
+                  </div>
                 </div>}
               </div>
 
@@ -523,7 +533,9 @@ export default function TrangPosKiemBill({ nhanVien, onDangXuat, onMoCaLamViec }
               </div>
             ) : (
               <>
-                <p className="text-sm text-stone-600">{phuongThucChon === 'vietqr' ? 'VietQR' : 'Tiền mặt'} · Còn phải thu {dinhDangTien(billHienTai?.conPhaiThu ?? 0)}</p>
+                <p className="text-sm text-stone-600">{phuongThucChon === 'vietqr' ? 'VietQR' : 'Tiền mặt'} · {
+                  billHienTai?.canHoan > 0 ? `Cần hoàn ${dinhDangTien(billHienTai.canHoan)}` : `Còn phải thu ${dinhDangTien(billHienTai?.conPhaiThu ?? 0)}`
+                }</p>
                 <button disabled={dangLuu || !!lyDoChanThu || !!lyDoChanDong || !billHienTai} onClick={() => moThanhToan(false)}
                   className="w-full rounded-xl bg-emerald-900 p-3 font-bold text-white disabled:opacity-50">Chốt bill, đóng bàn</button>
                 <button disabled={dangLuu || !!lyDoChanThu || thieuChiTietMon || !(billHienTai?.conPhaiThu > 0)} onClick={() => moThanhToan(true)}
@@ -549,6 +561,13 @@ export default function TrangPosKiemBill({ nhanVien, onDangXuat, onMoCaLamViec }
           }} />
       )}
       {phieuThu && <ModalInHoaDonK80 phieuThu={phieuThu} onDong={() => setPhieuThu(null)} />}
+      {buocThanhToan === 'hoan_tien' && (
+        <ModalHoanTienChotBan hoaDon={hoaDon} loi={loi} dangLuu={dangLuu}
+          chan={lyDoChanThu || lyDoChanDong || (billHienTai?.canHoan !== hoaDon.canHoan
+            ? 'Số tiền đã thay đổi. Hãy mở lại thanh toán.' : '')}
+          onDong={() => { setLoi(''); setBuocThanhToan('kieu'); }}
+          onXacNhan={hoanTien => xacNhanThanhToan(phuongThucChon, 0, hoanTien)} />
+      )}
 
       {/* Modal P03 Tiền mặt */}
       {hienTienMat && (
